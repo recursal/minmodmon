@@ -1,0 +1,18 @@
+[package]
+name = "minmodmon-server"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+fastrand.workspace = true
+half.workspace = true
+itertools.workspace = true
+memmap2.workspace = true
+safetensors.workspace = true
+salvo = { workspace = true, features = ["affix", "anyhow", "logging"] }
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+web-rwkv = { workspace = true, features = ["runtime"] }

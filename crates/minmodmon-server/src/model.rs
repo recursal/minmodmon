@@ -1,8 +1,7 @@
-use std::{collections::HashMap, fs::File, sync::Arc};
+use std::{fs::File, sync::Arc};
 
 use anyhow::{Context as _, Error};
 use half::f16;
-use itertools::Itertools;
 use memmap2::Mmap;
 use safetensors::SafeTensors;
 use salvo::Depot;
@@ -16,11 +15,13 @@ use web_rwkv::{
         softmax::softmax_one,
         v5, JobRuntime, Submission,
     },
-    tensor::{TensorCpu, TensorInit, TensorShape},
+    tensor::TensorCpu,
     tokenizer::Tokenizer,
     wgpu::PowerPreference,
 };
 use wgpu::Instance;
+
+use crate::sampler::Sampler;
 
 #[derive(Clone)]
 pub struct ModelService {
@@ -109,15 +110,9 @@ impl ModelService {
     }
 
     async fn generate_tokens(&self, start: u16) -> Result<Vec<u16>, Error> {
-        let sampler = Sampler {
-            top_p: 0.5,
-            temperature: 0.8,
-            presence_penalty: 0.3,
-            frequency_penalty: 0.3,
-        };
+        let mut sampler = Sampler::default();
 
         let mut generated = Vec::new();
-        let mut occurrences = HashMap::new();
 
         let mut token = start;
 
@@ -136,31 +131,16 @@ impl ModelService {
             let (_input, output) = receiver.await?;
             let logits = &output[0].0;
 
-            // Convert to f32 to work with it
-            // TODO: We probably don't actually need to do this conversion, can we edit the tensor's
-            //  values directly?
-            let shape = logits.shape();
-            let mut logits: Vec<_> = logits.iter().cloned().collect();
-
-            // Apply repetition penalties
-            // TODO: This entire sampling system needs a re-work, it should parse the input too and
-            //  in general needs to be designed more clear and resilient.
-            logits[0] = f32::NEG_INFINITY;
-            for (&token, &count) in &occurrences {
-                let penalty = sampler.presence_penalty + count as f32 * sampler.frequency_penalty;
-                logits[token as usize] -= penalty;
-            }
+            let logits = sampler.apply_penalties(logits)?;
 
             // Predict next token
-            let logits = TensorCpu::from_data(shape, logits)?;
             let probabilities = softmax_one(&self.inner.context, logits).await?;
             token = sampler.sample(&probabilities);
 
             // Remember what we got
             generated.push(token);
 
-            let count = occurrences.get(&token).cloned().unwrap_or(0) + 1;
-            occurrences.insert(token, count);
+            sampler.consume_token(token);
         }
 
         Ok(generated)
@@ -209,51 +189,6 @@ async fn load_model(
     let runtime = JobRuntime::new(builder).await;
 
     Ok((context, runtime, Box::new(state)))
-}
-
-struct Sampler {
-    top_p: f32,
-    temperature: f32,
-    presence_penalty: f32,
-    frequency_penalty: f32,
-}
-
-impl Sampler {
-    pub fn sample(&self, probabilities: &[f32]) -> u16 {
-        let sorted: Vec<_> = probabilities
-            .iter()
-            .copied()
-            .enumerate()
-            .sorted_unstable_by(|(_, x), (_, y)| x.total_cmp(y).reverse())
-            .scan((0, 0.0, 0.0), |(_, cum, _), (id, x)| {
-                if *cum > self.top_p {
-                    None
-                } else {
-                    *cum += x;
-                    Some((id, *cum, x))
-                }
-            })
-            .map(|(id, _, x)| (id, x.powf(1.0 / self.temperature)))
-            .collect();
-
-        let sum: f32 = sorted.iter().map(|(_, x)| x).sum();
-        let sorted: Vec<_> = sorted
-            .into_iter()
-            .map(|(id, x)| (id, x / sum))
-            .scan((0, 0.0), |(_, cum), (id, x)| {
-                *cum += x;
-                Some((id, *cum))
-            })
-            .collect();
-
-        let rand = fastrand::f32();
-        let token = sorted
-            .into_iter()
-            .find_or_first(|&(_, cum)| rand <= cum)
-            .map(|(id, _)| id)
-            .unwrap_or_default();
-        token as u16
-    }
 }
 
 pub fn get_model_service(depot: &Depot) -> Result<&ModelService, Error> {

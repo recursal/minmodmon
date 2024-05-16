@@ -1,5 +1,6 @@
 mod model;
 mod placeholder;
+mod sampler;
 
 use anyhow::Error;
 use salvo::{affix, conn::TcpListener, logging::Logger, Listener, Router, Server, Service};

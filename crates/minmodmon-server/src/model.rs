@@ -1,13 +1,14 @@
 use std::{collections::HashMap, fs::File, sync::Arc};
 
-use anyhow::Error;
+use anyhow::{Context as _, Error};
 use half::f16;
 use itertools::Itertools;
 use memmap2::Mmap;
 use safetensors::SafeTensors;
+use salvo::Depot;
 use tracing::{event, Level};
 use web_rwkv::{
-    context::{Context, ContextBuilder, Instance},
+    context::{Context, ContextBuilder, InstanceExt},
     model::{loader::Loader, ContextAutoLimits},
     runtime::{
         infer::{InferInput, InferInputBatch, InferOption, InferOutput},
@@ -19,6 +20,7 @@ use web_rwkv::{
     tokenizer::Tokenizer,
     wgpu::PowerPreference,
 };
+use wgpu::Instance;
 
 #[derive(Clone)]
 pub struct ModelService {
@@ -28,7 +30,7 @@ pub struct ModelService {
 struct ModelServiceInner {
     tokenizer: Tokenizer,
     context: Context,
-    runtime: JobRuntime<InferInput, InferOutput<f16>>,
+    runtime: JobRuntime<InferInput, InferOutput>,
     state: Box<dyn State + Send + Sync>,
     initial_state: TensorCpu<f32>,
 }
@@ -135,10 +137,14 @@ impl ModelService {
             let logits = &output[0].0;
 
             // Convert to f32 to work with it
+            // TODO: We probably don't actually need to do this conversion, can we edit the tensor's
+            //  values directly?
             let shape = logits.shape();
-            let mut logits: Vec<_> = logits.iter().map(|x| x.to_f32()).collect();
+            let mut logits: Vec<_> = logits.iter().cloned().collect();
 
             // Apply repetition penalties
+            // TODO: This entire sampling system needs a re-work, it should parse the input too and
+            //  in general needs to be designed more clear and resilient.
             logits[0] = f32::NEG_INFINITY;
             for (&token, &count) in &occurrences {
                 let penalty = sampler.presence_penalty + count as f32 * sampler.frequency_penalty;
@@ -166,7 +172,7 @@ async fn load_model(
 ) -> Result<
     (
         Context,
-        JobRuntime<InferInput, InferOutput<f16>>,
+        JobRuntime<InferInput, InferOutput>,
         Box<dyn State + Send + Sync>,
     ),
     Error,
@@ -181,10 +187,10 @@ async fn load_model(
     let model_info = Loader::info(&safetensors)?;
 
     // Prepare a context for the model
-    let instance = Instance::new();
+    let instance = Instance::default();
     let adapter = instance.adapter(PowerPreference::HighPerformance).await?;
     let context = ContextBuilder::new(adapter)
-        .with_auto_limits(&model_info)
+        .auto_limits(&model_info)
         .build()
         .await?;
 
@@ -194,10 +200,11 @@ async fn load_model(
         .collect();
 
     // Configure the model
-    let builder = ModelBuilder::new(&context, safetensors).with_quant(quantize);
+    let builder = ModelBuilder::new(&context, safetensors).quant(quantize);
 
     // Build the runtime, actually loading weights
-    let builder = Build::<v5::ModelJobBuilder<f16>>::build(builder).await?;
+    let model = Build::<v5::Model>::build(builder).await?;
+    let builder = v5::ModelRuntime::<f16>::new(model, 1);
     let state = builder.state();
     let runtime = JobRuntime::new(builder).await;
 
@@ -247,4 +254,11 @@ impl Sampler {
             .unwrap_or_default();
         token as u16
     }
+}
+
+pub fn get_model_service(depot: &Depot) -> Result<&ModelService, Error> {
+    depot
+        .obtain::<ModelService>()
+        .ok()
+        .context("failed to get model service")
 }

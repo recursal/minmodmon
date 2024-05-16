@@ -18,7 +18,5 @@ salvo = "0.67.0"
 tokio = "1.37.0"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
-web-rwkv = "0.7.3"
-
-#[patch.crates-io]
-#web-rwkv = { path = "../web-rwkv" }
+web-rwkv = "0.8.9"
+wgpu = "0.20.0"

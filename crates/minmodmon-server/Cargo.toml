@@ -12,6 +12,7 @@ itertools.workspace = true
 memmap2.workspace = true
 safetensors.workspace = true
 salvo = { workspace = true, features = ["affix", "anyhow", "logging"] }
+serde = { workspace = true, features = ["derive"] }
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

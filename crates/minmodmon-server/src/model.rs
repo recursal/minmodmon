@@ -21,7 +21,7 @@ use web_rwkv::{
 };
 use wgpu::Instance;
 
-use crate::sampler::Sampler;
+use crate::{sampler::Sampler, types::ModelInfo};
 
 #[derive(Clone)]
 pub struct ModelService {
@@ -64,6 +64,17 @@ impl ModelService {
             inner: Arc::new(inner),
         };
         Ok(value)
+    }
+
+    /// Get metadata information of the currently loaded model.
+    pub fn model_info(&self) -> ModelInfo {
+        // TODO: This needs to be loaded from a metadata file next to the safetensors file
+        ModelInfo {
+            id: "EagleX v2".to_string(),
+            object: "model".to_string(),
+            created: 1715960329,
+            owned_by: "Recursal AI".to_string(),
+        }
     }
 
     pub async fn run_placeholder(&self) -> Result<String, Error> {

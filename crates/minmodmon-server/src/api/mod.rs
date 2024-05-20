@@ -46,12 +46,24 @@ async fn handle_chat_completions(
     let manager = service.manager().await;
 
     // Parse the input
-    let _request = req.parse_json::<ChatRequest>().await;
+    let request = req.parse_json::<ChatRequest>().await?;
+
+    // Process messages
+    // TODO: Cache state so we can 'roll back' to a checkpoint and don't need to start from scratch
+    //  every time.
+    manager.reset_state()?;
+
+    for message in &request.messages {
+        manager.process_message(message).await?;
+    }
+
+    // Generate output
+    let message = manager.generate_message().await?;
 
     // Serialize and send back the result
     let message = ChatMessage {
         role: "assistant".to_string(),
-        content: "lorem ipsum".to_string(),
+        content: message,
     };
     let choice = ChatResponseChoice {
         index: 0,

@@ -101,6 +101,8 @@ impl AgentManager {
     }
 
     pub async fn generate_message(&self) -> Result<String, Error> {
+        event!(Level::DEBUG, "generating message");
+
         // Process the prompt format (important: no space after "Assistant:"!)
         let mut tokens = self.tokenizer.encode("Assistant:".as_bytes())?;
         let mut next_input = tokens.pop().unwrap();

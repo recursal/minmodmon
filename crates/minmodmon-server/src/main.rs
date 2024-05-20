@@ -1,5 +1,5 @@
+mod agent;
 mod api;
-mod model;
 mod placeholder;
 mod sampler;
 mod types;
@@ -9,14 +9,14 @@ use salvo::{
     affix::AffixList, conn::TcpListener, logging::Logger, Listener, Router, Server, Service,
 };
 
-use crate::model::ModelService;
+use crate::agent::AgentService;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     tracing_subscriber::fmt().init();
 
     // Create services
-    let model_service = ModelService::load().await?;
+    let model_service = AgentService::create().await?;
 
     // Configure routes
     let api_router = api::create_router()?;

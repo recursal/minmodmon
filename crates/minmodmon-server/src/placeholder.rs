@@ -1,13 +1,14 @@
 use anyhow::Error;
 use salvo::{handler, Depot, Response};
 
-use crate::model::get_model_service;
+use crate::agent::agent_service;
 
 #[handler]
 pub async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
-    let model_service = get_model_service(depot)?;
+    let agent_service_provider = agent_service(depot)?;
+    let agent_service = agent_service_provider.manager().await;
 
-    let answer = model_service.run_placeholder().await?;
+    let answer = agent_service.run_placeholder().await?;
 
     res.render(answer);
 

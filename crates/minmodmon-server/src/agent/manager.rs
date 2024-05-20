@@ -1,10 +1,9 @@
-use std::{fs::File, sync::Arc};
+use std::fs::File;
 
-use anyhow::{Context as _, Error};
+use anyhow::Error;
 use half::f16;
 use memmap2::Mmap;
 use safetensors::SafeTensors;
-use salvo::Depot;
 use tracing::{event, Level};
 use web_rwkv::{
     context::{Context, ContextBuilder, InstanceExt},
@@ -23,12 +22,7 @@ use wgpu::Instance;
 
 use crate::{sampler::Sampler, types::ModelInfo};
 
-#[derive(Clone)]
-pub struct ModelService {
-    inner: Arc<ModelServiceInner>,
-}
-
-struct ModelServiceInner {
+pub struct AgentManager {
     tokenizer: Tokenizer,
     context: Context,
     runtime: JobRuntime<InferInput, InferOutput>,
@@ -36,9 +30,9 @@ struct ModelServiceInner {
     initial_state: TensorCpu<f32>,
 }
 
-impl ModelService {
-    pub async fn load() -> Result<Self, Error> {
-        event!(Level::INFO, "loading model service");
+impl AgentManager {
+    pub async fn create() -> Result<Self, Error> {
+        event!(Level::INFO, "creating agent service");
 
         let model_path = "../EagleX_v2/EagleX-v2.st";
         let tokenizer_path = "../EagleX_v2/rwkv_vocab_v20230424.json";
@@ -53,16 +47,14 @@ impl ModelService {
         // Get the initial state if we need to reset
         let initial_state = state.back(0).await?;
 
-        let inner = ModelServiceInner {
+        let value = AgentManager {
             context,
             tokenizer,
             runtime,
             state,
             initial_state,
         };
-        let value = Self {
-            inner: Arc::new(inner),
-        };
+
         Ok(value)
     }
 
@@ -70,7 +62,7 @@ impl ModelService {
     pub fn model_info(&self) -> ModelInfo {
         // TODO: This needs to be loaded from a metadata file next to the safetensors file
         ModelInfo {
-            id: "EagleX v2".to_string(),
+            id: "eaglex-v2".to_string(),
             object: "model".to_string(),
             created: 1715960329,
             owned_by: "Recursal AI".to_string(),
@@ -79,11 +71,11 @@ impl ModelService {
 
     pub async fn run_placeholder(&self) -> Result<String, Error> {
         // Reset state to an initial state
-        self.inner.state.load(0, self.inner.initial_state.clone())?;
+        self.state.load(0, self.initial_state.clone())?;
 
         // Process the prompt
         let prompt = "You are a helpful writing assistant.\n\nUser: Write a funny parable about a fox jumping over a dog.\n\nAssistant:".to_string();
-        let mut prompt_tokenized = self.inner.tokenizer.encode(prompt.as_bytes())?;
+        let mut prompt_tokenized = self.tokenizer.encode(prompt.as_bytes())?;
         let prompt_last_token = prompt_tokenized.pop().unwrap();
 
         self.process_prompt(prompt_tokenized).await?;
@@ -92,7 +84,7 @@ impl ModelService {
         let generated = self.generate_tokens(prompt_last_token).await?;
 
         // Decode the tokenized answer
-        let answer_bytes = self.inner.tokenizer.decode(&generated)?;
+        let answer_bytes = self.tokenizer.decode(&generated)?;
         let answer = String::from_utf8_lossy(&answer_bytes).into_owned();
 
         Ok(answer)
@@ -111,7 +103,7 @@ impl ModelService {
         while !input.batches[0].tokens.is_empty() {
             let (sender, receiver) = tokio::sync::oneshot::channel();
             let submission = Submission { input, sender };
-            self.inner.runtime.send(submission).await?;
+            self.runtime.send(submission).await?;
 
             let (out_input, _output) = receiver.await?;
             input = out_input;
@@ -137,7 +129,7 @@ impl ModelService {
 
             let (sender, receiver) = tokio::sync::oneshot::channel();
             let submission = Submission { input, sender };
-            self.inner.runtime.send(submission).await?;
+            self.runtime.send(submission).await?;
 
             let (_input, output) = receiver.await?;
             let logits = &output[0].0;
@@ -145,7 +137,7 @@ impl ModelService {
             let logits = sampler.apply_penalties(logits)?;
 
             // Predict next token
-            let probabilities = softmax_one(&self.inner.context, logits).await?;
+            let probabilities = softmax_one(&self.context, logits).await?;
             token = sampler.sample(&probabilities);
 
             // Remember what we got
@@ -200,11 +192,4 @@ async fn load_model(
     let runtime = JobRuntime::new(builder).await;
 
     Ok((context, runtime, Box::new(state)))
-}
-
-pub fn get_model_service(depot: &Depot) -> Result<&ModelService, Error> {
-    depot
-        .obtain::<ModelService>()
-        .ok()
-        .context("failed to get model service")
 }

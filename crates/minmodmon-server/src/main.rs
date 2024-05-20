@@ -6,7 +6,7 @@ mod types;
 
 use std::collections::HashMap;
 
-use anyhow::Error;
+use anyhow::{Context, Error};
 use salvo::{
     affix::AffixList, conn::TcpListener, logging::Logger, Listener, Router, Server, Service,
 };
@@ -19,11 +19,12 @@ async fn main() -> Result<(), Error> {
     tracing_subscriber::fmt().init();
 
     // Load configuration
-    let config_str = std::fs::read_to_string("./Config.toml")?;
-    let config: Config = toml::from_str(&config_str)?;
+    let config = load_config().context("failed to load config")?;
 
     // Create services
-    let model_service = AgentService::create(&config).await?;
+    let model_service = AgentService::create(&config)
+        .await
+        .context("failed to load agent service")?;
 
     // Configure routes
     let api_router = api::create_router()?;
@@ -39,6 +40,12 @@ async fn main() -> Result<(), Error> {
     server.serve(service).await;
 
     Ok(())
+}
+
+fn load_config() -> Result<Config, Error> {
+    let config_str = std::fs::read_to_string("./Config.toml")?;
+    let config = toml::from_str(&config_str)?;
+    Ok(config)
 }
 
 #[derive(Serialize, Deserialize, Debug)]

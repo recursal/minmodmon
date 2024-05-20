@@ -46,7 +46,7 @@ pub struct ChatResponseChoice {
     pub index: usize,
     pub message: ChatMessage,
 
-    /// Should only be "stop" or "length" in midmodmon.
+    /// Should only be "stop" or "length" in minmodmon.
     pub finish_reason: String,
 }
 

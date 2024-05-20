@@ -95,7 +95,7 @@ impl AgentManager {
 
         // Process into the active state
         let tokens = self.tokenizer.encode(assembled.as_bytes())?;
-        self.process_batch(tokens).await?;
+        self.process_tokens(tokens).await?;
 
         Ok(())
     }
@@ -106,13 +106,13 @@ impl AgentManager {
         // Process the prompt format (important: no space after "Assistant:"!)
         let mut tokens = self.tokenizer.encode("Assistant:".as_bytes())?;
         let mut next_input = tokens.pop().unwrap();
-        self.process_batch(tokens).await?;
+        self.process_tokens(tokens).await?;
 
         // Generate answer tokens
         let mut sampler = Sampler::default();
         let mut generated = Vec::new();
 
-        for _ in 0..256 {
+        while !self.should_stop_generation(&generated) {
             // Run model step
             let batch = InferInputBatch {
                 tokens: vec![next_input],
@@ -138,17 +138,48 @@ impl AgentManager {
             sampler.consume_token(next_input);
         }
 
+        let content = self.finalize_generated(generated)?;
+
+        Ok(content)
+    }
+
+    fn should_stop_generation(&self, tokens: &[u16]) -> bool {
+        // Maximum tokens
+        if tokens.len() >= 256 {
+            return true;
+        }
+
+        // Ending with stop tokens
+        if tokens.ends_with(&STOP_TOKENS) {
+            return true;
+        }
+
+        false
+    }
+
+    fn finalize_generated(&self, mut tokens: Vec<u16>) -> Result<String, Error> {
+        // Trim stop tokens if they're at the end
+        if tokens.ends_with(&STOP_TOKENS) {
+            for _ in 0..STOP_TOKENS.len() {
+                tokens.pop();
+            }
+        }
+
         // Decode the tokenized answer
-        let answer_bytes = self.tokenizer.decode(&generated)?;
+        let answer_bytes = self.tokenizer.decode(&tokens)?;
         let answer = String::from_utf8_lossy(&answer_bytes);
 
         // Typically the model will output the first token with a prefixing space, remove that
-        let answer = answer.trim_start().to_string();
+        let value = if let Some(value) = answer.strip_prefix(' ') {
+            value.to_string()
+        } else {
+            answer.to_string()
+        };
 
-        Ok(answer)
+        Ok(value)
     }
 
-    async fn process_batch(&self, tokens: Vec<u16>) -> Result<(), Error> {
+    async fn process_tokens(&self, tokens: Vec<u16>) -> Result<(), Error> {
         // Process initial prompt
         let batch = InferInputBatch {
             tokens,
@@ -212,3 +243,5 @@ async fn load_model(
 
     Ok((context, runtime, Box::new(state)))
 }
+
+const STOP_TOKENS: [u16; 2] = [24281, 59];

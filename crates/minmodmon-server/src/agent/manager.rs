@@ -16,9 +16,8 @@ use web_rwkv::{
     },
     tensor::TensorCpu,
     tokenizer::Tokenizer,
-    wgpu::PowerPreference,
 };
-use wgpu::Instance;
+use wgpu::{Instance, PowerPreference};
 
 use crate::{sampler::Sampler, types::ModelInfo};
 
@@ -69,31 +68,81 @@ impl AgentManager {
         }
     }
 
-    pub async fn run_placeholder(&self) -> Result<String, Error> {
-        // Reset state to an initial state
+    /// Reset model state to a clear initial state.
+    pub fn reset_state(&self) -> Result<(), Error> {
         self.state.load(0, self.initial_state.clone())?;
+        Ok(())
+    }
 
-        // Process the prompt
-        let prompt = "You are a helpful writing assistant.\n\nUser: Write a funny parable about a fox jumping over a dog.\n\nAssistant:".to_string();
-        let mut prompt_tokenized = self.tokenizer.encode(prompt.as_bytes())?;
-        let prompt_last_token = prompt_tokenized.pop().unwrap();
+    pub async fn process_message(&self, source: &str, message: &str) -> Result<(), Error> {
+        event!(
+            Level::DEBUG,
+            source,
+            len = message.len(),
+            "processing message"
+        );
 
-        self.process_prompt(prompt_tokenized).await?;
+        // Assemble message
+        let assembled = match source {
+            "System" => format!("{}\n\n", message),
+            source => format!("{}: {}\n\n", source, message),
+        };
 
-        // Generate tokens
-        let generated = self.generate_tokens(prompt_last_token).await?;
+        // Process into the active state
+        let tokens = self.tokenizer.encode(assembled.as_bytes())?;
+        self.process_batch(tokens).await?;
+
+        Ok(())
+    }
+
+    pub async fn generate_message(&self) -> Result<String, Error> {
+        // Process the prompt format
+        let mut tokens = self.tokenizer.encode("Assistant:".as_bytes())?;
+        let mut last_token = tokens.pop().unwrap();
+        self.process_batch(tokens).await?;
+
+        // Generate answer tokens
+        let mut sampler = Sampler::default();
+        let mut generated = Vec::new();
+
+        for _ in 0..256 {
+            // Run model step
+            let batch = InferInputBatch {
+                tokens: vec![last_token],
+                option: InferOption::Last,
+            };
+            let input = InferInput::new(vec![batch], 32);
+
+            let (sender, receiver) = tokio::sync::oneshot::channel();
+            let submission = Submission { input, sender };
+            self.runtime.send(submission).await?;
+
+            let (_input, output) = receiver.await?;
+            let logits = &output[0].0;
+
+            // Pick output token
+            let logits = sampler.apply_penalties(logits)?;
+            let probabilities = softmax_one(&self.context, logits).await?;
+            last_token = sampler.sample(&probabilities);
+
+            // Accumulate newly generated tokens
+            generated.push(last_token);
+
+            sampler.consume_token(last_token);
+        }
 
         // Decode the tokenized answer
         let answer_bytes = self.tokenizer.decode(&generated)?;
-        let answer = String::from_utf8_lossy(&answer_bytes).into_owned();
+        let answer = String::from_utf8_lossy(&answer_bytes);
+
+        // Typically the model will output the first token with a prefixing space, remove that
+        let answer = answer.trim_start().to_string();
 
         Ok(answer)
     }
 
-    async fn process_prompt(&self, tokens: Vec<u16>) -> Result<(), Error> {
-        event!(Level::DEBUG, count = tokens.len(), "processing prompt");
-
-        // Process initial prompt (minus last token)
+    async fn process_batch(&self, tokens: Vec<u16>) -> Result<(), Error> {
+        // Process initial prompt
         let batch = InferInputBatch {
             tokens,
             option: InferOption::Last,
@@ -110,43 +159,6 @@ impl AgentManager {
         }
 
         Ok(())
-    }
-
-    async fn generate_tokens(&self, start: u16) -> Result<Vec<u16>, Error> {
-        let mut sampler = Sampler::default();
-
-        let mut generated = Vec::new();
-
-        let mut token = start;
-
-        for _ in 0..256 {
-            // Run model input
-            let batch = InferInputBatch {
-                tokens: vec![token],
-                option: InferOption::Last,
-            };
-            let input = InferInput::new(vec![batch], 32);
-
-            let (sender, receiver) = tokio::sync::oneshot::channel();
-            let submission = Submission { input, sender };
-            self.runtime.send(submission).await?;
-
-            let (_input, output) = receiver.await?;
-            let logits = &output[0].0;
-
-            let logits = sampler.apply_penalties(logits)?;
-
-            // Predict next token
-            let probabilities = softmax_one(&self.context, logits).await?;
-            token = sampler.sample(&probabilities);
-
-            // Remember what we got
-            generated.push(token);
-
-            sampler.consume_token(token);
-        }
-
-        Ok(generated)
     }
 }
 

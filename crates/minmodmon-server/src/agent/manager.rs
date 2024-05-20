@@ -26,6 +26,7 @@ use crate::{
 };
 
 pub struct AgentManager {
+    info: ModelInfo,
     tokenizer: Tokenizer,
     context: Context,
     runtime: JobRuntime<InferInput, InferOutput>,
@@ -44,6 +45,13 @@ impl AgentManager {
             .get(&config.active_model)
             .context("failed to find active model in config")?;
 
+        let info = ModelInfo {
+            id: config.active_model.clone(),
+            object: "model".to_string(),
+            created: 1715960329,
+            owned_by: "Recursal AI".to_string(),
+        };
+
         // Load the tokenizer
         let contents = std::fs::read_to_string(&model.vocab)?;
         let tokenizer = Tokenizer::new(&contents)?;
@@ -55,6 +63,7 @@ impl AgentManager {
         let initial_state = state.back(0).await?;
 
         let value = AgentManager {
+            info,
             context,
             tokenizer,
             runtime,
@@ -66,14 +75,8 @@ impl AgentManager {
     }
 
     /// Get metadata information of the currently loaded model.
-    pub fn model_info(&self) -> ModelInfo {
-        // TODO: This needs to be loaded from a metadata file next to the safetensors file
-        ModelInfo {
-            id: "eaglex-v2".to_string(),
-            object: "model".to_string(),
-            created: 1715960329,
-            owned_by: "Recursal AI".to_string(),
-        }
+    pub fn model_info(&self) -> &ModelInfo {
+        &self.info
     }
 
     /// Reset model state to a clear initial state.

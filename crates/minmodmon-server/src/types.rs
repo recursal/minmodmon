@@ -4,14 +4,14 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModelList {
     pub object: String,
     pub data: Vec<ModelInfo>,
 }
 
 /// Model information metadata.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModelInfo {
     pub id: String,
     pub object: String,
@@ -19,19 +19,19 @@ pub struct ModelInfo {
     pub owned_by: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ChatMessage {
     pub role: String,
     pub content: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ChatRequest {
     pub model: String,
     pub messages: Vec<ChatMessage>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ChatResponse {
     pub id: String,
     pub object: String,
@@ -41,7 +41,7 @@ pub struct ChatResponse {
     pub usage: UsageReport,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ChatResponseChoice {
     pub index: usize,
     pub message: ChatMessage,
@@ -50,7 +50,7 @@ pub struct ChatResponseChoice {
     pub finish_reason: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UsageReport {
     pub prompt_tokens: usize,
     pub completion_tokens: usize,

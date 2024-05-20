@@ -21,7 +21,7 @@ async fn handle_models(depot: &mut Depot, res: &mut Response) -> Result<(), Erro
     let service = agent_service(depot)?;
     let manager = service.manager().await;
 
-    let info = manager.model_info();
+    let info = manager.model_info().clone();
     let list = ModelList {
         object: "list".to_string(),
         data: vec![info],
@@ -79,7 +79,7 @@ async fn handle_chat_completions(
         id: format!("req-{}", now),
         object: "chat.completion".to_string(),
         created: now,
-        model: manager.model_info().id,
+        model: manager.model_info().id.clone(),
         choices: vec![choice],
         usage,
     };

@@ -1,0 +1,9 @@
+active_model = "recursal-eaglex-chat-v1"
+
+[models.recursal-eaglex-v2]
+weights = "./data/recursal-eaglex-v2.st"
+vocab = "./data/vocab.json"
+
+[models.recursal-eaglex-chat-v1]
+weights = "./data/recursal-eaglex-chat-v1.st"
+vocab = "./data/vocab.json"

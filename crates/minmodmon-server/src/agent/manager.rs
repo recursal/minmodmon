@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use anyhow::{bail, Error};
+use anyhow::{bail, Context as _, Error};
 use half::f16;
 use memmap2::Mmap;
 use safetensors::SafeTensors;
@@ -22,6 +22,7 @@ use wgpu::{Instance, PowerPreference};
 use crate::{
     sampler::Sampler,
     types::{ChatMessage, ModelInfo},
+    Config,
 };
 
 pub struct AgentManager {
@@ -33,18 +34,22 @@ pub struct AgentManager {
 }
 
 impl AgentManager {
-    pub async fn create() -> Result<Self, Error> {
+    pub async fn create(config: &Config) -> Result<Self, Error> {
         event!(Level::INFO, "creating agent service");
 
-        let model_path = "../EagleX_v2/EagleX-v2.st";
-        let tokenizer_path = "../EagleX_v2/rwkv_vocab_v20230424.json";
+        // Pick the active model from the config
+        event!(Level::INFO, "active model {:?}", config.active_model);
+        let model = config
+            .models
+            .get(&config.active_model)
+            .context("failed to find active model in config")?;
 
         // Load the tokenizer
-        let contents = std::fs::read_to_string(tokenizer_path)?;
+        let contents = std::fs::read_to_string(&model.vocab)?;
         let tokenizer = Tokenizer::new(&contents)?;
 
         // Load the model
-        let (context, runtime, state) = load_model(model_path).await?;
+        let (context, runtime, state) = load_model(&model.weights).await?;
 
         // Get the initial state if we need to reset
         let initial_state = state.back(0).await?;

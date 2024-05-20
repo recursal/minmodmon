@@ -4,10 +4,13 @@ mod placeholder;
 mod sampler;
 mod types;
 
+use std::collections::HashMap;
+
 use anyhow::Error;
 use salvo::{
     affix::AffixList, conn::TcpListener, logging::Logger, Listener, Router, Server, Service,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::agent::AgentService;
 
@@ -15,8 +18,12 @@ use crate::agent::AgentService;
 async fn main() -> Result<(), Error> {
     tracing_subscriber::fmt().init();
 
+    // Load configuration
+    let config_str = std::fs::read_to_string("./Config.toml")?;
+    let config: Config = toml::from_str(&config_str)?;
+
     // Create services
-    let model_service = AgentService::create().await?;
+    let model_service = AgentService::create(&config).await?;
 
     // Configure routes
     let api_router = api::create_router()?;
@@ -32,4 +39,16 @@ async fn main() -> Result<(), Error> {
     server.serve(service).await;
 
     Ok(())
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Config {
+    pub active_model: String,
+    pub models: HashMap<String, ModelConfig>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ModelConfig {
+    pub weights: String,
+    pub vocab: String,
 }

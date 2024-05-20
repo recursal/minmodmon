@@ -1,6 +1,6 @@
 use std::fs::File;
 
-use anyhow::Error;
+use anyhow::{bail, Error};
 use half::f16;
 use memmap2::Mmap;
 use safetensors::SafeTensors;
@@ -19,7 +19,10 @@ use web_rwkv::{
 };
 use wgpu::{Instance, PowerPreference};
 
-use crate::{sampler::Sampler, types::ModelInfo};
+use crate::{
+    sampler::Sampler,
+    types::{ChatMessage, ModelInfo},
+};
 
 pub struct AgentManager {
     tokenizer: Tokenizer,
@@ -74,18 +77,20 @@ impl AgentManager {
         Ok(())
     }
 
-    pub async fn process_message(&self, source: &str, message: &str) -> Result<(), Error> {
+    pub async fn process_message(&self, message: &ChatMessage) -> Result<(), Error> {
         event!(
             Level::DEBUG,
-            source,
-            len = message.len(),
+            role = message.role,
+            len = message.content.len(),
             "processing message"
         );
 
         // Assemble message
-        let assembled = match source {
-            "System" => format!("{}\n\n", message),
-            source => format!("{}: {}\n\n", source, message),
+        let assembled = match message.role.as_str() {
+            "system" => format!("{}\n\n", message.content),
+            "user" => format!("User: {}\n\n", message.content),
+            "assistant" => format!("Assistant: {}\n\n", message.content),
+            _ => bail!("invalid role"),
         };
 
         // Process into the active state
@@ -96,9 +101,9 @@ impl AgentManager {
     }
 
     pub async fn generate_message(&self) -> Result<String, Error> {
-        // Process the prompt format
+        // Process the prompt format (important: no space after "Assistant:"!)
         let mut tokens = self.tokenizer.encode("Assistant:".as_bytes())?;
-        let mut last_token = tokens.pop().unwrap();
+        let mut next_input = tokens.pop().unwrap();
         self.process_batch(tokens).await?;
 
         // Generate answer tokens
@@ -108,7 +113,7 @@ impl AgentManager {
         for _ in 0..256 {
             // Run model step
             let batch = InferInputBatch {
-                tokens: vec![last_token],
+                tokens: vec![next_input],
                 option: InferOption::Last,
             };
             let input = InferInput::new(vec![batch], 32);
@@ -123,12 +128,12 @@ impl AgentManager {
             // Pick output token
             let logits = sampler.apply_penalties(logits)?;
             let probabilities = softmax_one(&self.context, logits).await?;
-            last_token = sampler.sample(&probabilities);
+            next_input = sampler.sample(&probabilities);
 
             // Accumulate newly generated tokens
-            generated.push(last_token);
+            generated.push(next_input);
 
-            sampler.consume_token(last_token);
+            sampler.consume_token(next_input);
         }
 
         // Decode the tokenized answer

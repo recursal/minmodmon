@@ -5,7 +5,7 @@ use itertools::Itertools;
 use web_rwkv::tensor::{TensorCpu, TensorInit, TensorShape};
 
 // TODO: This entire sampling system needs a re-work:
-// - it should parse the input too
+// - should it parse the input too? is it per-message?
 // - in general it needs to be redesigned more clear and resilient
 
 pub struct Sampler {

@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::{fs::File, sync::Arc};
 
 use anyhow::{bail, Context as _, Error};
 use half::f16;
@@ -20,13 +20,14 @@ use web_rwkv::{
 use wgpu::{Instance, PowerPreference};
 
 use crate::{
+    config::{Config, ModelConfig},
     sampler::Sampler,
     types::{ChatMessage, ModelInfo},
-    Config,
 };
 
 pub struct AgentManager {
-    info: ModelInfo,
+    config: Arc<Config>,
+    active_model_config: ModelConfig,
     tokenizer: Tokenizer,
     context: Context,
     runtime: JobRuntime<InferInput, InferOutput>,
@@ -35,35 +36,30 @@ pub struct AgentManager {
 }
 
 impl AgentManager {
-    pub async fn create(config: &Config) -> Result<Self, Error> {
+    pub async fn create(config: Arc<Config>) -> Result<Self, Error> {
         event!(Level::INFO, "creating agent service");
 
         // Pick the active model from the config
         event!(Level::INFO, "active model {:?}", config.active_model);
-        let model = config
+        let active_model_config = config
             .models
             .get(&config.active_model)
-            .context("failed to find active model in config")?;
-
-        let info = ModelInfo {
-            id: config.active_model.clone(),
-            object: "model".to_string(),
-            created: 1715960329,
-            owned_by: "Recursal AI".to_string(),
-        };
+            .context("failed to find active model in config")?
+            .clone();
 
         // Load the tokenizer
-        let contents = std::fs::read_to_string(&model.vocab)?;
+        let contents = std::fs::read_to_string(&active_model_config.vocab)?;
         let tokenizer = Tokenizer::new(&contents)?;
 
         // Load the model
-        let (context, runtime, state) = load_model(&model.weights).await?;
+        let (context, runtime, state) = load_model(&active_model_config.weights).await?;
 
         // Get the initial state if we need to reset
         let initial_state = state.back(0).await?;
 
         let value = AgentManager {
-            info,
+            config,
+            active_model_config,
             context,
             tokenizer,
             runtime,
@@ -75,8 +71,13 @@ impl AgentManager {
     }
 
     /// Get metadata information of the currently loaded model.
-    pub fn model_info(&self) -> &ModelInfo {
-        &self.info
+    pub fn model_info(&self) -> ModelInfo {
+        ModelInfo {
+            id: self.config.active_model.clone(),
+            object: "model".to_string(),
+            created: 1715960329,
+            owned_by: "Recursal AI".to_string(),
+        }
     }
 
     /// Reset model state to a clear initial state.
@@ -93,17 +94,32 @@ impl AgentManager {
             "processing message"
         );
 
-        // Assemble message
-        let assembled = match message.role.as_str() {
-            "system" => format!("{}\n\n", message.content),
-            "user" => format!("User: {}\n\n", message.content),
-            "assistant" => format!("Assistant: {}\n\n", message.content),
+        // Encode content into tokens
+        let content = self.tokenizer.encode(message.content.as_bytes())?;
+
+        // Assemble with prompt format
+        let (prefix, suffix) = match message.role.as_str() {
+            "system" => (
+                &self.active_model_config.system_prefix,
+                &self.active_model_config.system_suffix,
+            ),
+            "user" => (
+                &self.active_model_config.user_prefix,
+                &self.active_model_config.user_suffix,
+            ),
+            "assistant" => (
+                &self.active_model_config.assistant_prefix,
+                &self.active_model_config.assistant_suffix,
+            ),
             _ => bail!("invalid role"),
         };
 
-        // Process into the active state
-        let tokens = self.tokenizer.encode(assembled.as_bytes())?;
-        self.process_tokens(tokens).await?;
+        let mut assembled = prefix.clone();
+        assembled.extend_from_slice(&content);
+        assembled.extend_from_slice(suffix);
+
+        // Process the tokens into the active state
+        self.process_tokens(assembled).await?;
 
         Ok(())
     }
@@ -111,8 +127,8 @@ impl AgentManager {
     pub async fn generate_message(&self) -> Result<String, Error> {
         event!(Level::DEBUG, "generating message");
 
-        // Process the prompt format (important: no space after "Assistant:"!)
-        let mut tokens = self.tokenizer.encode("Assistant:".as_bytes())?;
+        // Start with the prompt format of an assistant message
+        let mut tokens = self.active_model_config.assistant_prefix.clone();
         let mut next_input = tokens.pop().unwrap();
         self.process_tokens(tokens).await?;
 
@@ -153,12 +169,12 @@ impl AgentManager {
 
     fn should_stop_generation(&self, tokens: &[u16]) -> bool {
         // Maximum tokens
-        if tokens.len() >= 256 {
+        if tokens.len() >= 512 {
             return true;
         }
 
         // Ending with stop tokens
-        if tokens.ends_with(&STOP_TOKENS) {
+        if tokens.ends_with(&self.active_model_config.stop_sequence) {
             return true;
         }
 
@@ -166,9 +182,9 @@ impl AgentManager {
     }
 
     fn finalize_generated(&self, mut tokens: Vec<u16>) -> Result<String, Error> {
-        // Trim stop tokens if they're at the end
-        if tokens.ends_with(&STOP_TOKENS) {
-            for _ in 0..STOP_TOKENS.len() {
+        // Trim stop tokens, if we got them at the end
+        if tokens.ends_with(&self.active_model_config.stop_sequence) {
+            for _ in 0..self.active_model_config.stop_sequence.len() {
                 tokens.pop();
             }
         }
@@ -251,5 +267,3 @@ async fn load_model(
 
     Ok((context, runtime, Box::new(state)))
 }
-
-const STOP_TOKENS: [u16; 2] = [24281, 59];

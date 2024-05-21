@@ -1,18 +1,16 @@
 mod agent;
 mod api;
+mod config;
 mod placeholder;
 mod sampler;
 mod types;
-
-use std::collections::HashMap;
 
 use anyhow::{Context, Error};
 use salvo::{
     affix::AffixList, conn::TcpListener, logging::Logger, Listener, Router, Server, Service,
 };
-use serde::{Deserialize, Serialize};
 
-use crate::agent::AgentService;
+use crate::{agent::AgentService, config::load_config};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -22,9 +20,9 @@ async fn main() -> Result<(), Error> {
     let config = load_config().context("failed to load config")?;
 
     // Create services
-    let model_service = AgentService::create(&config)
+    let model_service = AgentService::create(config)
         .await
-        .context("failed to load agent service")?;
+        .context("failed to create agent service")?;
 
     // Configure routes
     let api_router = api::create_router()?;
@@ -40,22 +38,4 @@ async fn main() -> Result<(), Error> {
     server.serve(service).await;
 
     Ok(())
-}
-
-fn load_config() -> Result<Config, Error> {
-    let config_str = std::fs::read_to_string("./Config.toml")?;
-    let config = toml::from_str(&config_str)?;
-    Ok(config)
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Config {
-    pub active_model: String,
-    pub models: HashMap<String, ModelConfig>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ModelConfig {
-    pub weights: String,
-    pub vocab: String,
 }

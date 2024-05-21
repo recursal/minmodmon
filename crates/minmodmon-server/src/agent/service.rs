@@ -4,7 +4,7 @@ use anyhow::{Context as _, Error};
 use salvo::Depot;
 use tokio::sync::{Mutex, MutexGuard};
 
-use crate::{agent::AgentManager, Config};
+use crate::{agent::AgentManager, config::Config};
 
 #[derive(Clone)]
 pub struct AgentService {
@@ -14,7 +14,7 @@ pub struct AgentService {
 }
 
 impl AgentService {
-    pub async fn create(config: &Config) -> Result<Self, Error> {
+    pub async fn create(config: Arc<Config>) -> Result<Self, Error> {
         let service = AgentManager::create(config).await?;
         let value = Self {
             service: Arc::new(Mutex::new(service)),

@@ -86,6 +86,16 @@ impl AgentManager {
         Ok(())
     }
 
+    pub async fn export_state(&self) -> Result<TensorCpu<f32>, Error> {
+        let state = self.state.back(0).await?;
+        Ok(state)
+    }
+
+    pub fn import_state(&self, state: TensorCpu<f32>) -> Result<(), Error> {
+        self.state.load(0, state)?;
+        Ok(())
+    }
+
     pub async fn process_message(&self, message: &ChatMessage) -> Result<(), Error> {
         event!(
             Level::DEBUG,

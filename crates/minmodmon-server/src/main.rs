@@ -1,5 +1,6 @@
 mod agent;
 mod api;
+mod cache;
 mod config;
 mod placeholder;
 mod sampler;
@@ -10,7 +11,7 @@ use salvo::{
     affix::AffixList, conn::TcpListener, logging::Logger, Listener, Router, Server, Service,
 };
 
-use crate::{agent::AgentService, config::load_config};
+use crate::{agent::AgentService, cache::CacheService, config::load_config};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -23,13 +24,14 @@ async fn main() -> Result<(), Error> {
     let model_service = AgentService::create(config)
         .await
         .context("failed to create agent service")?;
+    let cache_service = CacheService::create().context("failed to create cache service")?;
 
     // Configure routes
     let api_router = api::create_router()?;
     let router = Router::new().get(placeholder::handle).push(api_router);
 
     // Configure the service
-    let affix = AffixList::new().inject(model_service);
+    let affix = AffixList::new().inject(model_service).inject(cache_service);
     let service = Service::new(router).hoop(Logger::new()).hoop(affix);
 
     // Start the server

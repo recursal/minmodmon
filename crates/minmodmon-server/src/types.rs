@@ -19,7 +19,7 @@ pub struct ModelInfo {
     pub owned_by: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Hash, Debug, Clone)]
 pub struct ChatMessage {
     pub role: String,
     pub content: String,

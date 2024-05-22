@@ -15,9 +15,9 @@ pub struct AgentService {
 
 impl AgentService {
     pub async fn create(config: Arc<Config>) -> Result<Self, Error> {
-        let service = AgentManager::create(config).await?;
+        let manager = AgentManager::create(config).await?;
         let value = Self {
-            service: Arc::new(Mutex::new(service)),
+            service: Arc::new(Mutex::new(manager)),
         };
 
         Ok(value)

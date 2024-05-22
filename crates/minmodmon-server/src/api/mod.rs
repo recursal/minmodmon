@@ -3,6 +3,7 @@ use std::time::SystemTime;
 use anyhow::Error;
 use salvo::{handler, writing::Json, Depot, Request, Response, Router};
 
+use crate::cache::cache_service;
 use crate::{
     agent::agent_service,
     types::{ChatMessage, ChatRequest, ChatResponse, ChatResponseChoice, ModelList, UsageReport},
@@ -43,19 +44,30 @@ async fn handle_chat_completions(
         .as_secs();
 
     let service = agent_service(depot)?;
+    let cache = cache_service(depot)?;
     let manager = service.manager().await;
+    let mut cache = cache.manager().await;
 
     // Parse the input
     let request = req.parse_json::<ChatRequest>().await?;
 
-    // Process messages
-    // TODO: Cache state so we can 'roll back' to a checkpoint and don't need to start from scratch
-    //  every time.
-    manager.reset_state()?;
+    // Check if we can restore from cache
+    let mut skipped = 0;
+    if let Some((length, state)) = cache.query(&request.messages) {
+        skipped = length;
+        manager.import_state(state.clone())?;
+    } else {
+        manager.reset_state()?;
+    }
 
-    for message in &request.messages {
+    // Process remaining messages
+    for message in &request.messages[skipped..] {
         manager.process_message(message).await?;
     }
+
+    // Cache current state, after processing given non-cached messages
+    let state = manager.export_state().await?;
+    cache.set(&request.messages, state);
 
     // Generate output
     let message = manager.generate_message().await?;

@@ -13,6 +13,7 @@ memmap2.workspace = true
 safetensors.workspace = true
 salvo = { workspace = true, features = ["affix", "anyhow", "logging"] }
 serde = { workspace = true, features = ["derive"] }
+tinytemplate.workspace = true
 tokio.workspace = true
 toml.workspace = true
 tracing.workspace = true

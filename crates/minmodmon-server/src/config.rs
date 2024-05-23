@@ -19,11 +19,14 @@ pub struct Config {
 pub struct ModelConfig {
     pub weights: String,
     pub vocab: String,
-    pub system_prefix: Vec<u16>,
-    pub system_suffix: Vec<u16>,
-    pub user_prefix: Vec<u16>,
-    pub user_suffix: Vec<u16>,
-    pub assistant_prefix: Vec<u16>,
-    pub assistant_suffix: Vec<u16>,
+    pub role_system: RoleConfig,
+    pub role_user: RoleConfig,
+    pub role_assistant: RoleConfig,
     pub stop_sequence: Vec<u16>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RoleConfig {
+    pub prefix: Vec<u16>,
+    pub suffix: Vec<u16>,
 }

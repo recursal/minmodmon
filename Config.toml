@@ -3,21 +3,15 @@ active_model = "recursal-eaglex-chat-v1"
 [models.recursal-eaglex-v2]
 weights = "./data/recursal-eaglex-v2.st"
 vocab = "./data/vocab.json"
-system_prefix = []
-system_suffix = [261]
-user_prefix = [24281, 59]
-user_suffix = [261]
-assistant_prefix = [58683, 59]
-assistant_suffix = [261]
+role_system = { prefix = [], suffix = [261] }
+role_user = { prefix = [24281, 59], suffix = [261] }
+role_assistant = { prefix = [58683, 59], suffix = [261] }
 stop_sequence = [261, 24281, 59]
 
 [models.recursal-eaglex-chat-v1]
 weights = "./data/recursal-eaglex-chat-v1.st"
 vocab = "./data/vocab.json"
-system_prefix = [23, 42343, 11]
-system_suffix = [24, 11]
-user_prefix = [23, 27370, 11]
-user_suffix = [24, 11]
-assistant_prefix = [23, 59179, 11]
-assistant_suffix = [24, 11]
+role_system = { prefix = [23, 42343, 11], suffix = [24, 11] }
+role_user = { prefix = [23, 27370, 11], suffix = [24, 11] }
+role_assistant = { prefix = [23, 59179, 11], suffix = [24, 11] }
 stop_sequence = [24]

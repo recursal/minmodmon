@@ -70,16 +70,18 @@ async fn handle_chat_completions(
     cache.set(&request.messages, state);
 
     // Generate output
-    let message = manager.generate_message().await?;
+    let content = manager.generate_message().await?;
 
     // Serialize and send back the result
     let message = ChatMessage {
         role: "assistant".to_string(),
-        content: message,
+        content,
     };
     let choice = ChatResponseChoice {
         index: 0,
         message,
+        // TODO: This needs to actually distinguish between if we stopped because we ran to the
+        //  token limit, or because the message is done.
         finish_reason: "stop".to_string(),
     };
     let usage = UsageReport {

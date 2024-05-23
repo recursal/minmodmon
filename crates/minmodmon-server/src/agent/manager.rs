@@ -108,25 +108,16 @@ impl AgentManager {
         let content = self.tokenizer.encode(message.content.as_bytes())?;
 
         // Assemble with prompt format
-        let (prefix, suffix) = match message.role.as_str() {
-            "system" => (
-                &self.active_model_config.system_prefix,
-                &self.active_model_config.system_suffix,
-            ),
-            "user" => (
-                &self.active_model_config.user_prefix,
-                &self.active_model_config.user_suffix,
-            ),
-            "assistant" => (
-                &self.active_model_config.assistant_prefix,
-                &self.active_model_config.assistant_suffix,
-            ),
+        let role = match message.role.as_str() {
+            "system" => &self.active_model_config.role_system,
+            "user" => &self.active_model_config.role_user,
+            "assistant" => &self.active_model_config.role_assistant,
             _ => bail!("invalid role"),
         };
 
-        let mut assembled = prefix.clone();
+        let mut assembled = role.prefix.clone();
         assembled.extend_from_slice(&content);
-        assembled.extend_from_slice(suffix);
+        assembled.extend_from_slice(&role.suffix);
 
         // Process the tokens into the active state
         self.process_tokens(assembled).await?;
@@ -138,7 +129,7 @@ impl AgentManager {
         event!(Level::DEBUG, "generating message");
 
         // Start with the prompt format of an assistant message
-        let mut tokens = self.active_model_config.assistant_prefix.clone();
+        let mut tokens = self.active_model_config.role_assistant.prefix.clone();
         let mut next_input = tokens.pop().unwrap();
         self.process_tokens(tokens).await?;
 

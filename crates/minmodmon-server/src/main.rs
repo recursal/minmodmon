@@ -2,7 +2,7 @@ mod agent;
 mod api;
 mod cache;
 mod config;
-mod placeholder;
+mod dashboard;
 mod sampler;
 mod types;
 
@@ -28,7 +28,7 @@ async fn main() -> Result<(), Error> {
 
     // Configure routes
     let api_router = api::create_router()?;
-    let router = Router::new().get(placeholder::handle).push(api_router);
+    let router = Router::new().get(dashboard::handle).push(api_router);
 
     // Configure the service
     let affix = AffixList::new().inject(model_service).inject(cache_service);

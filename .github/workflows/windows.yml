@@ -1,0 +1,19 @@
+name: Windows Builds
+
+on: [ push ]
+
+jobs:
+  windows-editor:
+    runs-on: "windows-latest"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Rust Build
+        run: |
+          cargo build --release
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: minmodmon-server-artifact
+          path: target/release/minmodmon-server.exe

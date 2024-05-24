@@ -12,7 +12,7 @@ use web_rwkv::{
         infer::{InferInput, InferInputBatch, InferOption, InferOutput},
         model::{Build, ModelBuilder, ModelRuntime, Quant, State},
         softmax::softmax_one,
-        v5, JobRuntime, Submission,
+        v5, JobRuntime,
     },
     tensor::TensorCpu,
     tokenizer::Tokenizer,
@@ -144,12 +144,8 @@ impl AgentManager {
                 option: InferOption::Last,
             };
             let input = InferInput::new(vec![batch], 32);
+            let (_input, output) = self.runtime.infer(input).await;
 
-            let (sender, receiver) = tokio::sync::oneshot::channel();
-            let submission = Submission { input, sender };
-            self.runtime.send(submission).await?;
-
-            let (_input, output) = receiver.await?;
             let logits = &output[0].0;
 
             // Pick output token
@@ -213,11 +209,7 @@ impl AgentManager {
         let mut input = InferInput::new(vec![batch], 32);
 
         while !input.batches[0].tokens.is_empty() {
-            let (sender, receiver) = tokio::sync::oneshot::channel();
-            let submission = Submission { input, sender };
-            self.runtime.send(submission).await?;
-
-            let (out_input, _output) = receiver.await?;
+            let (out_input, _output) = self.runtime.infer(input).await;
             input = out_input;
         }
 

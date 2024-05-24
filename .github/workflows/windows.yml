@@ -1,9 +1,9 @@
-name: Windows Builds
+name: Windows Build
 
 on: [ push ]
 
 jobs:
-  windows-editor:
+  build:
     runs-on: "windows-latest"
     steps:
       - name: Checkout repository
@@ -13,7 +13,13 @@ jobs:
         run: |
           cargo build --release
 
-      - uses: actions/upload-artifact@v2
+      - name: Prepare Dist
+        run: |
+          mkdir dist
+          cp "./target/release/minmodmon-server.exe" "./dist/minmodmon-server.exe"
+          cp "./Config.toml" "./dist/Config.toml"
+
+      - uses: actions/upload-artifact@v4
         with:
-          name: minmodmon-server-artifact
-          path: target/release/minmodmon-server.exe
+          name: minmodmon
+          path: ./dist

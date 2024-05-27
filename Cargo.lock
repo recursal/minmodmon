@@ -1250,7 +1250,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "minmodmon-server"
+name = "minmodmon-agent"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1261,13 +1261,37 @@ dependencies = [
  "safetensors",
  "salvo",
  "serde",
- "tinytemplate",
  "tokio",
  "toml",
  "tracing",
- "tracing-subscriber",
  "web-rwkv",
  "wgpu",
+]
+
+[[package]]
+name = "minmodmon-dashboard"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "minmodmon-agent",
+ "salvo",
+ "serde",
+ "tinytemplate",
+]
+
+[[package]]
+name = "minmodmon-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "minmodmon-agent",
+ "minmodmon-dashboard",
+ "salvo",
+ "serde",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "web-rwkv",
 ]
 
 [[package]]

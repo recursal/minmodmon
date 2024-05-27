@@ -1,24 +1,21 @@
-mod agent;
 mod api;
 mod cache;
-mod config;
-mod dashboard;
-mod sampler;
-mod types;
 
 use anyhow::{Context, Error};
 use salvo::{
     affix::AffixList, conn::TcpListener, logging::Logger, Listener, Router, Server, Service,
 };
 
-use crate::{agent::AgentService, cache::CacheService, config::load_config};
+use minmodmon_agent::AgentService;
+
+use crate::cache::CacheService;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     tracing_subscriber::fmt().init();
 
     // Load configuration
-    let config = load_config().context("failed to load config")?;
+    let config = minmodmon_agent::config::load_config().context("failed to load config")?;
 
     // Create services
     let model_service = AgentService::create(config)
@@ -28,7 +25,9 @@ async fn main() -> Result<(), Error> {
 
     // Configure routes
     let api_router = api::create_router()?;
-    let router = Router::new().get(dashboard::handle).push(api_router);
+    let router = Router::new()
+        .get(minmodmon_dashboard::handle)
+        .push(api_router);
 
     // Configure the service
     let affix = AffixList::new().inject(model_service).inject(cache_service);

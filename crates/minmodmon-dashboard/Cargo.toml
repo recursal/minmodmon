@@ -1,0 +1,12 @@
+[package]
+name = "minmodmon-dashboard"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+salvo = { workspace = true, features = ["anyhow"] }
+serde = { workspace = true, features = ["derive"] }
+tinytemplate.workspace = true
+minmodmon-agent.workspace = true

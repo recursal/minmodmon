@@ -1,14 +1,15 @@
 use std::time::SystemTime;
 
 use anyhow::Error;
+use minmodmon_agent::types::{
+    ChatMessage, ChatRequest, ChatResponse, ChatResponseChoice, ModelList, UsageReport,
+};
 use salvo::{handler, writing::Json, Depot, Request, Response, Router};
 use tracing::{event, Level};
 
+use minmodmon_agent::agent_service;
+
 use crate::cache::cache_service;
-use crate::{
-    agent::agent_service,
-    types::{ChatMessage, ChatRequest, ChatResponse, ChatResponseChoice, ModelList, UsageReport},
-};
 
 pub fn create_router() -> Result<Router, Error> {
     let router = Router::with_path("api")

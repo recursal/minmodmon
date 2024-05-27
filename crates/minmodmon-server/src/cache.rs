@@ -8,7 +8,7 @@ use salvo::Depot;
 use tokio::sync::{Mutex, MutexGuard};
 use web_rwkv::tensor::TensorCpu;
 
-use crate::types::ChatMessage;
+use minmodmon_agent::types::ChatMessage;
 
 #[derive(Clone)]
 pub struct CacheService {

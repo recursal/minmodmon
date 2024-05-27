@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Mini Model Daemon - Dashboard</title>
+</head>
+<body>
+
+<h1>Mini Model Daemon Dashboard</h1>
+
+<section>
+    <p>Loaded model: {loaded_model}</p>
+    <p>API URL: <input type="text" value="http://127.0.0.1:5000/api" readonly/></p>
+</section>
+
+<form>
+    <h2>Load Model</h2>
+
+    <label for="model-id">Model ID</label>
+    <input type="text" name="model-id" id="model-id" required/>
+
+    <label for="model-quantization">Quantization</label>
+    <select id="model-quantization" name="model-quantization">
+        <option value="int8">Int8</option>
+        <option value="nf4">NF4</option>
+    </select>
+
+    <input type="submit" value="Load"/>
+</form>
+
+<section>
+    <h2>Models</h2>
+    {{ for model in models }}
+    <div>
+        <h3>{model.id}</h3>
+        <p>Missing model file! <a href="#">download</a></p>
+    </div>
+    {{ endfor }}
+</section>
+
+</body>
+</html>

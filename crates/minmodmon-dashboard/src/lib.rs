@@ -3,7 +3,7 @@ use salvo::{handler, writing::Text, Depot, Response};
 use serde::Serialize;
 use tinytemplate::TinyTemplate;
 
-use crate::agent::agent_service;
+use minmodmon_agent::agent_service;
 
 #[handler]
 pub async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
@@ -17,8 +17,17 @@ pub async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> 
 
     // Prepare context data
     let info = manager.model_info();
+    let models = vec![
+        ModelContext {
+            id: "recursal-eaglex-v2".to_string(),
+        },
+        ModelContext {
+            id: "recursal-eaglex-chat-v1".to_string(),
+        },
+    ];
     let context = Context {
         loaded_model: info.id.clone(),
+        models,
     };
 
     // Render and reply with the template
@@ -31,4 +40,10 @@ pub async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> 
 #[derive(Serialize)]
 struct Context {
     loaded_model: String,
+    models: Vec<ModelContext>,
+}
+
+#[derive(Serialize)]
+struct ModelContext {
+    id: String,
 }

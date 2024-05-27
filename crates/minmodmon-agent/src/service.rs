@@ -4,7 +4,7 @@ use anyhow::{Context as _, Error};
 use salvo::Depot;
 use tokio::sync::{Mutex, MutexGuard};
 
-use crate::{agent::AgentManager, config::Config};
+use crate::{config::Config, AgentManager};
 
 #[derive(Clone)]
 pub struct AgentService {

@@ -11,7 +11,7 @@ jobs:
 
       - name: Rust Build
         run: |
-          cargo build
+          cargo build --release
 
       - name: Prepare Dist
         run: |

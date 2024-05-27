@@ -246,7 +246,7 @@ async fn load_model(
 
     // Quantize all layers to 8-bit
     let quantize = (0..model_info.num_layer)
-        .map(|layer| (layer, Quant::Int8))
+        .map(|layer| (layer, Quant::NF4))
         .collect();
 
     // Configure the model

@@ -6,7 +6,6 @@ use std::{
 use anyhow::{Context, Error};
 use salvo::Depot;
 use tokio::sync::{Mutex, MutexGuard};
-use tracing::{event, Level};
 use web_rwkv::tensor::TensorCpu;
 
 use crate::types::ChatMessage;
@@ -69,11 +68,6 @@ impl CacheManager {
         let hash = hash_messages(messages);
 
         if entry.hash == hash {
-            event!(
-                Level::INFO,
-                length = entry.length,
-                "cache match for messages"
-            );
             return Some((entry.length, &entry.state));
         }
 

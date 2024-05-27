@@ -2,6 +2,7 @@ use std::time::SystemTime;
 
 use anyhow::Error;
 use salvo::{handler, writing::Json, Depot, Request, Response, Router};
+use tracing::{event, Level};
 
 use crate::cache::cache_service;
 use crate::{
@@ -54,9 +55,11 @@ async fn handle_chat_completions(
     // Check if we can restore from cache
     let mut skipped = 0;
     if let Some((length, state)) = cache.query(&request.messages) {
+        event!(Level::INFO, length, "restoring from cached state");
         skipped = length;
         manager.import_state(state.clone())?;
     } else {
+        event!(Level::INFO, "could not restore from cached state, no match");
         manager.reset_state()?;
     }
 

@@ -32,7 +32,9 @@ async fn main() -> Result<(), Error> {
     let router = Router::new().push(dashboard_router).push(api_router);
 
     // Configure the service
-    let affix = AffixList::new().inject(model_service).inject(cache_service);
+    let affix = AffixList::new()
+        .inject(Arc::new(model_service))
+        .inject(Arc::new(cache_service));
     let service = Service::new(router).hoop(Logger::new()).hoop(affix);
 
     // Start the server

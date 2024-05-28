@@ -20,7 +20,8 @@ pub fn create_router() -> Result<Router, Error> {
 #[handler]
 async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
     let service = agent_service(depot)?;
-    let mut manager = service.manager().await;
+
+    let active_model_id = service.active_model_id().await;
 
     // Prepare template
     let template = include_str!("dashboard.html");
@@ -28,7 +29,6 @@ async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
     tt.add_template("dashboard", template)?;
 
     // Prepare context data
-    let info = manager.active_model().map(|m| m.info());
     let models = vec![
         ModelContext {
             id: "recursal-eaglex-v2".to_string(),
@@ -38,7 +38,7 @@ async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
         },
     ];
     let context = Context {
-        loaded_model: info.map_or_else(|| "None".to_string(), |i| i.id.clone()),
+        loaded_model: active_model_id.unwrap_or_else(|| "None".to_string()),
         models,
     };
 

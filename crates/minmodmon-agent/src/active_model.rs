@@ -250,5 +250,7 @@ async fn load_model(
     let state = builder.state();
     let runtime = JobRuntime::new(builder).await;
 
+    event!(Level::INFO, path, "finished loading model");
+
     Ok((context, runtime, Box::new(state)))
 }

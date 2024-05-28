@@ -22,15 +22,15 @@ pub fn create_router() -> Result<Router, Error> {
 #[handler]
 async fn handle_models(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
     let service = agent_service(depot)?;
-    let mut manager = service.manager().await;
 
     let mut list = ModelList {
         object: "list".to_string(),
         data: Vec::new(),
     };
 
-    if let Some(model) = manager.active_model() {
-        let info = model.info();
+    if let Some(active_model) = service.active_model().await {
+        let active_model = active_model.lock().await;
+        let info = active_model.info();
         list.data.push(info);
     }
 
@@ -51,39 +51,39 @@ async fn handle_chat_completions(
 
     let service = agent_service(depot)?;
     let cache = cache_service(depot)?;
-    let mut manager = service.manager().await;
-    let mut cache = cache.manager().await;
 
     // Get the current model
-    let model = manager
+    let active_model = service
         .active_model()
+        .await
         .context("failed to get active model")?;
+    let active_model = active_model.lock().await;
 
     // Parse the input
     let request = req.parse_json::<ChatRequest>().await?;
 
     // Check if we can restore from cache
     let mut skipped = 0;
-    if let Some((length, state)) = cache.query(&request.messages) {
+    if let Some((length, state)) = cache.query(&request.messages).await {
         event!(Level::INFO, length, "restoring from cached state");
         skipped = length;
-        model.import_state(state.clone())?;
+        active_model.import_state(state)?;
     } else {
         event!(Level::INFO, "could not restore from cached state, no match");
-        model.reset_state()?;
+        active_model.reset_state()?;
     }
 
     // Process remaining messages
     for message in &request.messages[skipped..] {
-        model.process_message(message).await?;
+        active_model.process_message(message).await?;
     }
 
     // Cache current state, after processing given non-cached messages
-    let state = model.export_state().await?;
-    cache.set(&request.messages, state);
+    let state = active_model.export_state().await?;
+    cache.set(&request.messages, state).await;
 
     // Generate output
-    let content = model.generate_message().await?;
+    let content = active_model.generate_message().await?;
 
     // Serialize and send back the result
     let message = ChatMessage {
@@ -106,7 +106,7 @@ async fn handle_chat_completions(
         id: format!("req-{}", now),
         object: "chat.completion".to_string(),
         created: now,
-        model: model.info().id,
+        model: active_model.info().id,
         choices: vec![choice],
         usage,
     };

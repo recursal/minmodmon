@@ -5,40 +5,21 @@ use std::{
 
 use anyhow::{Context, Error};
 use salvo::Depot;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::Mutex;
 use web_rwkv::tensor::TensorCpu;
 
 use minmodmon_agent::types::ChatMessage;
 
-#[derive(Clone)]
-pub struct CacheService {
-    service: Arc<Mutex<CacheManager>>,
-}
-
-impl CacheService {
-    pub fn create() -> Result<Self, Error> {
-        let manager = CacheManager::create()?;
-        let value = Self {
-            service: Arc::new(Mutex::new(manager)),
-        };
-
-        Ok(value)
-    }
-
-    pub async fn manager(&self) -> MutexGuard<CacheManager> {
-        self.service.lock().await
-    }
-}
-
-pub fn cache_service(depot: &Depot) -> Result<&CacheService, Error> {
+pub fn cache_service(depot: &Depot) -> Result<Arc<CacheService>, Error> {
     depot
-        .obtain::<CacheService>()
+        .obtain::<Arc<CacheService>>()
         .ok()
+        .cloned()
         .context("failed to get cache service")
 }
 
-pub struct CacheManager {
-    entry: Option<CacheEntry>,
+pub struct CacheService {
+    entry: Mutex<Option<CacheEntry>>,
 }
 
 struct CacheEntry {
@@ -47,16 +28,19 @@ struct CacheEntry {
     state: TensorCpu<f32>,
 }
 
-impl CacheManager {
-    fn create() -> Result<Self, Error> {
-        let value = Self { entry: None };
+impl CacheService {
+    pub fn create() -> Result<Self, Error> {
+        let value = Self {
+            entry: Mutex::new(None),
+        };
 
         Ok(value)
     }
 
-    pub fn query(&self, messages: &[ChatMessage]) -> Option<(usize, &TensorCpu<f32>)> {
+    pub async fn query(&self, messages: &[ChatMessage]) -> Option<(usize, TensorCpu<f32>)> {
         // Check if we have an entry at all
-        let entry = self.entry.as_ref()?;
+        let slot = self.entry.lock().await;
+        let entry = slot.as_ref()?;
 
         // If our entry is too long, it can't possibly match
         if entry.length > messages.len() {
@@ -68,21 +52,22 @@ impl CacheManager {
         let hash = hash_messages(messages);
 
         if entry.hash == hash {
-            return Some((entry.length, &entry.state));
+            return Some((entry.length, entry.state.clone()));
         }
 
         // Cached entry doesn't match
         None
     }
 
-    pub fn set(&mut self, messages: &[ChatMessage], state: TensorCpu<f32>) {
+    pub async fn set(&self, messages: &[ChatMessage], state: TensorCpu<f32>) {
         let hash = hash_messages(messages);
         let entry = CacheEntry {
             length: messages.len(),
             hash,
             state,
         };
-        self.entry = Some(entry);
+        let mut slot = self.entry.lock().await;
+        *slot = Some(entry);
     }
 }
 

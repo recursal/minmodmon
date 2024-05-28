@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use anyhow::Error;
+use anyhow::{Context, Error};
 use minmodmon_agent::types::{
     ChatMessage, ChatRequest, ChatResponse, ChatResponseChoice, ModelList, UsageReport,
 };
@@ -22,13 +22,17 @@ pub fn create_router() -> Result<Router, Error> {
 #[handler]
 async fn handle_models(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
     let service = agent_service(depot)?;
-    let manager = service.manager().await;
+    let mut manager = service.manager().await;
 
-    let info = manager.model_info();
-    let list = ModelList {
+    let mut list = ModelList {
         object: "list".to_string(),
-        data: vec![info],
+        data: Vec::new(),
     };
+
+    if let Some(model) = manager.active_model() {
+        let info = model.info();
+        list.data.push(info);
+    }
 
     res.render(Json(list));
 
@@ -47,8 +51,13 @@ async fn handle_chat_completions(
 
     let service = agent_service(depot)?;
     let cache = cache_service(depot)?;
-    let manager = service.manager().await;
+    let mut manager = service.manager().await;
     let mut cache = cache.manager().await;
+
+    // Get the current model
+    let model = manager
+        .active_model()
+        .context("failed to get active model")?;
 
     // Parse the input
     let request = req.parse_json::<ChatRequest>().await?;
@@ -58,23 +67,23 @@ async fn handle_chat_completions(
     if let Some((length, state)) = cache.query(&request.messages) {
         event!(Level::INFO, length, "restoring from cached state");
         skipped = length;
-        manager.import_state(state.clone())?;
+        model.import_state(state.clone())?;
     } else {
         event!(Level::INFO, "could not restore from cached state, no match");
-        manager.reset_state()?;
+        model.reset_state()?;
     }
 
     // Process remaining messages
     for message in &request.messages[skipped..] {
-        manager.process_message(message).await?;
+        model.process_message(message).await?;
     }
 
     // Cache current state, after processing given non-cached messages
-    let state = manager.export_state().await?;
+    let state = model.export_state().await?;
     cache.set(&request.messages, state);
 
     // Generate output
-    let content = manager.generate_message().await?;
+    let content = model.generate_message().await?;
 
     // Serialize and send back the result
     let message = ChatMessage {
@@ -97,7 +106,7 @@ async fn handle_chat_completions(
         id: format!("req-{}", now),
         object: "chat.completion".to_string(),
         created: now,
-        model: manager.model_info().id,
+        model: model.info().id,
         choices: vec![choice],
         usage,
     };

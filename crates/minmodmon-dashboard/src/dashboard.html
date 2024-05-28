@@ -13,17 +13,25 @@
     <p>API URL: <input type="text" value="http://127.0.0.1:5000/api" readonly/></p>
 </section>
 
-<form>
+<form action="/load_model" method="post">
     <h2>Load Model</h2>
 
-    <label for="model-id">Model ID</label>
-    <input type="text" name="model-id" id="model-id" required/>
+    <div>
+        <div style="width:150px;display:inline-block">
+            <label for="model-id">Model ID</label>
+        </div>
+        <input type="text" name="model-id" id="model-id" required/>
+    </div>
 
-    <label for="model-quantization">Quantization</label>
-    <select id="model-quantization" name="model-quantization">
-        <option value="int8">Int8</option>
-        <option value="nf4">NF4</option>
-    </select>
+    <div>
+        <div style="width:150px;display:inline-block">
+            <label for="model-quantization">Quantization</label>
+        </div>
+        <select id="model-quantization" name="model-quantization">
+            <option value="int8">Int8</option>
+            <option value="nf4">NF4</option>
+        </select>
+    </div>
 
     <input type="submit" value="Load"/>
 </form>

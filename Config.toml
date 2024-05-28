@@ -1,5 +1,3 @@
-active_model = "recursal-eaglex-v2"
-
 [models.recursal-eaglex-v2]
 weights = "./data/recursal-eaglex-v2.st"
 vocab = "./data/rwkv_vocab_v20230424.json"

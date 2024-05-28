@@ -1,3 +1,4 @@
+mod active_model;
 pub mod config;
 mod manager;
 mod sampler;
@@ -5,6 +6,7 @@ mod service;
 pub mod types;
 
 pub use self::{
-    manager::AgentManager,
+    active_model::ActiveModel,
+    manager::{activate_model, AgentManager},
     service::{agent_service, AgentService},
 };

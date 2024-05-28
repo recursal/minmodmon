@@ -1,6 +1,8 @@
 mod api;
 mod cache;
 
+use std::sync::Arc;
+
 use anyhow::{Context, Error};
 use salvo::{
     affix::AffixList, conn::TcpListener, logging::Logger, Listener, Router, Server, Service,
@@ -16,6 +18,7 @@ async fn main() -> Result<(), Error> {
 
     // Load configuration
     let config = minmodmon_agent::config::load_config().context("failed to load config")?;
+    let config = Arc::new(config);
 
     // Create services
     let model_service = AgentService::create(config)
@@ -24,10 +27,9 @@ async fn main() -> Result<(), Error> {
     let cache_service = CacheService::create().context("failed to create cache service")?;
 
     // Configure routes
+    let dashboard_router = minmodmon_dashboard::create_router()?;
     let api_router = api::create_router()?;
-    let router = Router::new()
-        .get(minmodmon_dashboard::handle)
-        .push(api_router);
+    let router = Router::new().push(dashboard_router).push(api_router);
 
     // Configure the service
     let affix = AffixList::new().inject(model_service).inject(cache_service);

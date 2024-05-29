@@ -37,13 +37,17 @@ pub struct ActiveModel {
 }
 
 impl ActiveModel {
-    pub(crate) async fn create(id: String, config: ModelConfig) -> Result<Self, Error> {
+    pub(crate) async fn create(
+        id: String,
+        config: ModelConfig,
+        quant_nf8: bool,
+    ) -> Result<Self, Error> {
         // Load the tokenizer
         let contents = std::fs::read_to_string(&config.vocab)?;
         let tokenizer = Tokenizer::new(&contents)?;
 
         // Load the model
-        let (context, runtime, state) = load_model(&config.weights).await?;
+        let (context, runtime, state) = load_model(&config.weights, quant_nf8).await?;
 
         // Get the initial state if we need to reset
         let initial_state = state.back(0).await?;
@@ -211,6 +215,7 @@ impl ActiveModel {
 
 async fn load_model(
     path: &str,
+    quant_nf8: bool,
 ) -> Result<
     (
         Context,
@@ -237,8 +242,9 @@ async fn load_model(
         .await?;
 
     // Quantize all layers to 8-bit
+    let quant = if quant_nf8 { Quant::NF4 } else { Quant::Int8 };
     let quantize = (0..model_info.num_layer)
-        .map(|layer| (layer, Quant::NF4))
+        .map(|layer| (layer, quant))
         .collect();
 
     // Configure the model
@@ -250,7 +256,7 @@ async fn load_model(
     let state = builder.state();
     let runtime = JobRuntime::new(builder).await;
 
-    event!(Level::INFO, path, "finished loading model");
+    event!(Level::INFO, "finished loading model");
 
     Ok((context, runtime, Box::new(state)))
 }

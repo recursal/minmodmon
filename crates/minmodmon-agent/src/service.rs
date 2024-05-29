@@ -56,17 +56,21 @@ impl AgentService {
 }
 
 // TODO: Figure out how to better architect shared managers/services for functions like this.
-pub async fn activate_model(service: Arc<AgentService>, id: String) -> Result<(), Error> {
+pub async fn start_activate_model(
+    service: Arc<AgentService>,
+    id: String,
+    quant_nf8: bool,
+) -> Result<(), Error> {
     event!(Level::INFO, "activating model {:?}", id);
 
     let model_config = service
         .model_configs
         .get(&id)
-        .context("failed to find active model in config")?
+        .context("failed to find model in config")?
         .clone();
 
     let future = async move {
-        let result = activate_model_task(service, id, model_config).await;
+        let result = activate_model_task(service, id, model_config, quant_nf8).await;
         if let Err(error) = result {
             // TODO: Do something with this
             event!(Level::ERROR, "error while activating model:\n{:?}", error);
@@ -81,8 +85,9 @@ async fn activate_model_task(
     service: Arc<AgentService>,
     id: String,
     config: ModelConfig,
+    quant_nf8: bool,
 ) -> Result<(), Error> {
-    let active_model = ActiveModel::create(id, config).await?;
+    let active_model = ActiveModel::create(id, config, quant_nf8).await?;
     let active_model = Arc::new(Mutex::new(active_model));
 
     let mut slot = service.active_model.lock().await;

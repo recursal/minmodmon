@@ -9,4 +9,5 @@ anyhow.workspace = true
 salvo = { workspace = true, features = ["anyhow"] }
 serde = { workspace = true, features = ["derive"] }
 tinytemplate.workspace = true
+tracing.workspace = true
 minmodmon-agent.workspace = true

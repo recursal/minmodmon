@@ -1277,6 +1277,7 @@ dependencies = [
  "salvo",
  "serde",
  "tinytemplate",
+ "tracing",
 ]
 
 [[package]]

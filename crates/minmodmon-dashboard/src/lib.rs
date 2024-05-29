@@ -1,13 +1,14 @@
-use anyhow::Error;
+use anyhow::{Context as _, Error};
 use salvo::{
     handler,
     writing::{Redirect, Text},
-    Depot, Response, Router,
+    Depot, Request, Response, Router,
 };
 use serde::Serialize;
 use tinytemplate::TinyTemplate;
+use tracing::{event, Level};
 
-use minmodmon_agent::{activate_model, agent_service};
+use minmodmon_agent::{agent_service, start_activate_model};
 
 pub fn create_router() -> Result<Router, Error> {
     let router = Router::new()
@@ -62,10 +63,28 @@ struct ModelContext {
 }
 
 #[handler]
-async fn handle_load_model(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
+async fn handle_load_model(
+    req: &mut Request,
+    depot: &mut Depot,
+    res: &mut Response,
+) -> Result<(), Error> {
+    event!(Level::INFO, "dashboard requested load model");
+
     let service = agent_service(depot)?;
 
-    activate_model(service.clone(), "recursal-eaglex-v2".to_string()).await?;
+    let model_id = req
+        .form::<String>("model-id")
+        .await
+        .context("failed to get model-id")?;
+    let model_quantization = req
+        .form::<String>("model-quantization")
+        .await
+        .context("failed to get model-quantization")?;
+
+    let quant_nf8 = model_quantization == "nf8";
+    start_activate_model(service.clone(), model_id, quant_nf8)
+        .await
+        .context("failed to start model activation")?;
 
     res.render(Redirect::other("/"));
 

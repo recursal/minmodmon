@@ -6,5 +6,5 @@ pub mod types;
 
 pub use self::{
     active_model::ActiveModel,
-    service::{activate_model, agent_service, ActiveModelRef, AgentService},
+    service::{agent_service, start_activate_model, ActiveModelRef, AgentService},
 };

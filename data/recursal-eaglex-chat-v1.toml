@@ -1,0 +1,6 @@
+weights = "./data/recursal-eaglex-chat-v1.st"
+vocab = "./data/rwkv_vocab_v20230424.json"
+role_system = { prefix = [23, 42343, 11], suffix = [24, 11] }
+role_user = { prefix = [23, 27370, 11], suffix = [24, 11] }
+role_assistant = { prefix = [23, 59179, 11], suffix = [24, 11] }
+stop_sequence = [24]

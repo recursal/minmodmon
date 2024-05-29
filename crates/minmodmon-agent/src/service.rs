@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Context as _, Error};
 use salvo::Depot;
@@ -7,7 +7,7 @@ use tracing::{event, Level};
 
 use crate::{
     active_model::ActiveModel,
-    config::{Config, ModelConfig},
+    config::{load_model_configs, ModelConfig},
 };
 
 pub fn agent_service(depot: &Depot) -> Result<Arc<AgentService>, Error> {
@@ -19,22 +19,28 @@ pub fn agent_service(depot: &Depot) -> Result<Arc<AgentService>, Error> {
 }
 
 pub struct AgentService {
-    config: Arc<Config>,
+    model_configs: HashMap<String, ModelConfig>,
     active_model: Mutex<Option<ActiveModelRef>>,
 }
 
 pub type ActiveModelRef = Arc<Mutex<ActiveModel>>;
 
 impl AgentService {
-    pub async fn create(config: Arc<Config>) -> Result<Self, Error> {
+    pub async fn create() -> Result<Self, Error> {
         event!(Level::INFO, "creating agent service");
 
+        let model_configs = load_model_configs().context("failed to load model configs")?;
+
         let value = AgentService {
-            config,
+            model_configs,
             active_model: Mutex::new(None),
         };
 
         Ok(value)
+    }
+
+    pub fn model_configs(&self) -> &HashMap<String, ModelConfig> {
+        &self.model_configs
     }
 
     pub async fn active_model(&self) -> Option<ActiveModelRef> {
@@ -54,8 +60,7 @@ pub async fn activate_model(service: Arc<AgentService>, id: String) -> Result<()
     event!(Level::INFO, "activating model {:?}", id);
 
     let model_config = service
-        .config
-        .models
+        .model_configs
         .get(&id)
         .context("failed to find active model in config")?
         .clone();

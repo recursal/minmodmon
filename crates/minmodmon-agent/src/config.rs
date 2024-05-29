@@ -1,17 +1,32 @@
 use std::collections::HashMap;
 
-use anyhow::Error;
+use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
 
-pub fn load_config() -> Result<Config, Error> {
-    let config_str = std::fs::read_to_string("./Config.toml")?;
-    let value = toml::from_str(&config_str)?;
-    Ok(value)
-}
+pub(crate) fn load_model_configs() -> Result<HashMap<String, ModelConfig>, Error> {
+    let mut model_configs = HashMap::new();
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Config {
-    pub models: HashMap<String, ModelConfig>,
+    for entry in std::fs::read_dir("./data")? {
+        let entry = entry?;
+
+        let path = entry.path();
+        let is_toml = path.extension().map(|v| v == "toml").unwrap_or(false);
+
+        if !is_toml {
+            continue;
+        }
+
+        let name = path.file_stem().context("failed to get file name")?;
+        let name = name.to_string_lossy().to_string();
+
+        // Parse the file contents
+        let config_str = std::fs::read_to_string(path)?;
+        let value: ModelConfig = toml::from_str(&config_str)?;
+
+        model_configs.insert(name, value);
+    }
+
+    Ok(model_configs)
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

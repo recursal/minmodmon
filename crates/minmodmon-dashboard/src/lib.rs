@@ -28,15 +28,16 @@ async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
     let mut tt = TinyTemplate::new();
     tt.add_template("dashboard", template)?;
 
+    // Prepare model context data
+    let mut models = Vec::new();
+    #[allow(clippy::for_kv_map)]
+    for (id, _config) in service.model_configs() {
+        let context = ModelContext { id: id.clone() };
+        models.push(context);
+    }
+    models.sort_by(|a, b| a.id.cmp(&b.id));
+
     // Prepare context data
-    let models = vec![
-        ModelContext {
-            id: "recursal-eaglex-v2".to_string(),
-        },
-        ModelContext {
-            id: "recursal-eaglex-chat-v1".to_string(),
-        },
-    ];
     let context = Context {
         loaded_model: active_model_id.unwrap_or_else(|| "None".to_string()),
         models,

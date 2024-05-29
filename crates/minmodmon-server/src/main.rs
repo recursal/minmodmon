@@ -16,12 +16,8 @@ use crate::cache::CacheService;
 async fn main() -> Result<(), Error> {
     tracing_subscriber::fmt().init();
 
-    // Load configuration
-    let config = minmodmon_agent::config::load_config().context("failed to load config")?;
-    let config = Arc::new(config);
-
     // Create services
-    let model_service = AgentService::create(config)
+    let model_service = AgentService::create()
         .await
         .context("failed to create agent service")?;
     let cache_service = CacheService::create().context("failed to create cache service")?;

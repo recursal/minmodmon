@@ -17,7 +17,7 @@ jobs:
         run: |
           mkdir dist
           cp "./target/release/minmodmon-server.exe" "./dist/minmodmon-server.exe"
-          cp "./Config.toml" "./dist/Config.toml"
+          cp "./data" "./dist/data"
 
       - uses: actions/upload-artifact@v4
         with:

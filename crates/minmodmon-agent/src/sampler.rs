@@ -7,6 +7,7 @@ use web_rwkv::tensor::{TensorCpu, TensorInit, TensorShape};
 // TODO: This entire sampling system needs a re-work:
 // - should it parse the input too? is it per-message?
 // - in general it needs to be redesigned more clear and resilient
+// - support different kinds of samplers as a configured option
 
 pub struct Sampler {
     occurrences: HashMap<u16, u32>,
@@ -45,8 +46,9 @@ impl Sampler {
         Ok(logits)
     }
 
-    pub fn sample(&self, probabilities: &[f32]) -> u16 {
-        let sorted: Vec<_> = probabilities
+    #[allow(unused)]
+    pub fn sample(&self, logits: &[f32]) -> u16 {
+        let sorted: Vec<_> = logits
             .iter()
             .copied()
             .enumerate()
@@ -79,6 +81,33 @@ impl Sampler {
             .map(|(id, _)| id)
             .unwrap_or_default();
         token as u16
+    }
+
+    pub fn sample_min_t(&self, logits: &[f32]) -> u16 {
+        let max = logits.iter().fold(f32::NEG_INFINITY, |acc, x| acc.max(*x));
+        let min = logits.iter().fold(f32::INFINITY, |acc, x| acc.min(*x));
+
+        let mut dart = fastrand::f32();
+        let power = 1.0 - f32::powf(dart, self.temperature * f32::powf(dart, 10.0));
+        dart = f32::powf(dart, power);
+        dart = min + dart * (max - min);
+
+        let (index, _) = logits
+            .iter()
+            .enumerate()
+            .reduce(|x, y| {
+                let xv = (x.1 - dart).abs();
+                let yv = (y.1 - dart).abs();
+
+                if xv < yv {
+                    x
+                } else {
+                    y
+                }
+            })
+            .unwrap();
+
+        index as u16
     }
 
     pub fn consume_token(&mut self, token: u16) {

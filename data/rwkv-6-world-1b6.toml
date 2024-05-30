@@ -1,4 +1,4 @@
-architecture = "rwkv5"
+architecture = "rwkv6"
 vocab = "./data/rwkv_vocab_v20230424.json"
 role_system = { prefix = [], suffix = [261] }
 role_user = { prefix = [24281, 59], suffix = [261] }

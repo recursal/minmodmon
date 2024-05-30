@@ -47,7 +47,8 @@ impl ActiveModel {
         let tokenizer = Tokenizer::new(&contents)?;
 
         // Load the model
-        let (context, runtime, state) = load_model(&config.weights, quant_nf8).await?;
+        let weights_path = format!("data/{}.st", id);
+        let (context, runtime, state) = load_model(&weights_path, quant_nf8).await?;
 
         // Get the initial state if we need to reset
         let initial_state = state.back(0).await?;
@@ -78,7 +79,7 @@ impl ActiveModel {
 
     /// Reset model state to a clear initial state.
     pub fn reset_state(&self) -> Result<(), Error> {
-        self.state.load(0, self.initial_state.clone())?;
+        self.state.load(self.initial_state.clone(), 0)?;
         Ok(())
     }
 
@@ -88,7 +89,7 @@ impl ActiveModel {
     }
 
     pub fn import_state(&self, state: TensorCpu<f32>) -> Result<(), Error> {
-        self.state.load(0, state)?;
+        self.state.load(state, 0)?;
         Ok(())
     }
 

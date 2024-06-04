@@ -5,6 +5,7 @@ use half::f16;
 use memmap2::Mmap;
 use safetensors::SafeTensors;
 use tracing::{event, Level};
+use web_rwkv::runtime::model::ModelVersion;
 use web_rwkv::{
     context::{Context, ContextBuilder, InstanceExt},
     model::{loader::Loader, ContextAutoLimits},
@@ -12,7 +13,7 @@ use web_rwkv::{
         infer::{InferInput, InferInputBatch, InferOption, InferOutput},
         model::{Build, ModelBuilder, ModelRuntime, Quant, State},
         softmax::softmax_one,
-        v5, JobRuntime,
+        v4, v5, v6, JobRuntime,
     },
     tensor::TensorCpu,
     tokenizer::Tokenizer,
@@ -47,8 +48,14 @@ impl ActiveModel {
         let tokenizer = Tokenizer::new(&contents)?;
 
         // Load the model
+        let version = match config.architecture.as_str() {
+            "rwkv4" => ModelVersion::V4,
+            "rwkv5" => ModelVersion::V5,
+            "rwkv6" => ModelVersion::V6,
+            _ => bail!("unsupported architecture"),
+        };
         let weights_path = format!("data/{}.st", id);
-        let (context, runtime, state) = load_model(&weights_path, quant_nf8).await?;
+        let (context, runtime, state) = load_model(version, &weights_path, quant_nf8).await?;
 
         // Get the initial state if we need to reset
         let initial_state = state.back(0).await?;
@@ -215,6 +222,7 @@ impl ActiveModel {
 }
 
 async fn load_model(
+    version: ModelVersion,
     path: &str,
     quant_nf8: bool,
 ) -> Result<
@@ -252,12 +260,34 @@ async fn load_model(
     let builder = ModelBuilder::new(&context, safetensors).quant(quantize);
 
     // Build the runtime, actually loading weights
-    let model = Build::<v5::Model>::build(builder).await?;
-    let builder = v5::ModelRuntime::<f16>::new(model, 1);
-    let state = builder.state();
-    let runtime = JobRuntime::new(builder).await;
+    let (runtime, state): (_, Box<dyn State + Send + Sync>) = match version {
+        ModelVersion::V4 => {
+            event!(Level::INFO, "loading rwkv-v4 model");
+            let model = Build::<v4::Model>::build(builder).await?;
+            let builder = v4::ModelRuntime::<f16>::new(model, 1);
+            let state = builder.state();
+            let runtime = JobRuntime::new(builder).await;
+            (runtime, Box::new(state))
+        }
+        ModelVersion::V5 => {
+            event!(Level::INFO, "loading rwkv-v5 model");
+            let model = Build::<v5::Model>::build(builder).await?;
+            let builder = v5::ModelRuntime::<f16>::new(model, 1);
+            let state = builder.state();
+            let runtime = JobRuntime::new(builder).await;
+            (runtime, Box::new(state))
+        }
+        ModelVersion::V6 => {
+            event!(Level::INFO, "loading rwkv-v6 model");
+            let model = Build::<v6::Model>::build(builder).await?;
+            let builder = v6::ModelRuntime::<f16>::new(model, 1);
+            let state = builder.state();
+            let runtime = JobRuntime::new(builder).await;
+            (runtime, Box::new(state))
+        }
+    };
 
     event!(Level::INFO, "finished loading model");
 
-    Ok((context, runtime, Box::new(state)))
+    Ok((context, runtime, state))
 }

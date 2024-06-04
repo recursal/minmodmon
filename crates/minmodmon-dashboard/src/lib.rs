@@ -31,9 +31,11 @@ async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
 
     // Prepare model context data
     let mut models = Vec::new();
-    #[allow(clippy::for_kv_map)]
-    for (id, _config) in service.model_configs() {
-        let context = ModelContext { id: id.clone() };
+    for (id, config) in service.model_configs() {
+        let context = ModelContext {
+            id: id.clone(),
+            download_link: config.download_link.clone(),
+        };
         models.push(context);
     }
     models.sort_by(|a, b| a.id.cmp(&b.id));
@@ -60,6 +62,7 @@ struct Context {
 #[derive(Serialize)]
 struct ModelContext {
     id: String,
+    download_link: String,
 }
 
 #[handler]

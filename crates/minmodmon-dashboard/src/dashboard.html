@@ -41,7 +41,7 @@
     {{ for model in models }}
     <div>
         <h3>{model.id}</h3>
-        <p>Missing model file! <a href="#">download</a></p>
+        <p>Missing model file! <a href="{model.download_link}">download</a></p>
     </div>
     {{ endfor }}
 </section>

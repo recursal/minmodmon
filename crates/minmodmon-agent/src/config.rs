@@ -32,6 +32,7 @@ pub(crate) fn load_model_configs() -> Result<HashMap<String, ModelConfig>, Error
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModelConfig {
     pub architecture: String,
+    pub download_link: String,
     pub vocab: String,
     pub role_system: RoleConfig,
     pub role_user: RoleConfig,

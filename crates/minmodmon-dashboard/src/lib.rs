@@ -31,10 +31,11 @@ async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
 
     // Prepare model context data
     let mut models = Vec::new();
-    for (id, config) in service.model_configs() {
+    for (id, info) in service.known_models() {
         let context = ModelContext {
             id: id.clone(),
-            download_link: config.download_link.clone(),
+            available: info.available(),
+            download_link: info.config().download_link.clone(),
         };
         models.push(context);
     }
@@ -62,6 +63,7 @@ struct Context {
 #[derive(Serialize)]
 struct ModelContext {
     id: String,
+    available: bool,
     download_link: String,
 }
 

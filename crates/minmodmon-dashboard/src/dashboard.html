@@ -41,7 +41,11 @@
     {{ for model in models }}
     <div>
         <h3>{model.id}</h3>
-        <p>Missing model file! <a href="{model.download_link}">download</a></p>
+        {{ if model.available }}
+        <p style="color:green">Model available!</p>
+        {{ else }}
+        <p style="color:red">Missing model file! <a href="{model.download_link}">download</a></p>
+        {{ endif }}
     </div>
     {{ endfor }}
 </section>

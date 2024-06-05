@@ -1,5 +1,5 @@
 architecture = "rwkv6"
-download_link = "https://example.com/"
+download_link = "https://huggingface.co/LaylBongers/minmodmon-models/blob/main/rwkv-6-world-7b.st"
 vocab = "./data/rwkv_vocab_v20230424.json"
 role_system = { prefix = [], suffix = [261] }
 role_user = { prefix = [24281, 59], suffix = [261] }

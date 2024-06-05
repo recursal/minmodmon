@@ -1,6 +1,6 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
-use anyhow::{Context as _, Error};
+use anyhow::{bail, Context as _, Error};
 use salvo::Depot;
 use tokio::sync::Mutex;
 use tracing::{event, Level};
@@ -19,8 +19,13 @@ pub fn agent_service(depot: &Depot) -> Result<Arc<AgentService>, Error> {
 }
 
 pub struct AgentService {
-    model_configs: HashMap<String, ModelConfig>,
+    known_models: HashMap<String, KnownModelInfo>,
     active_model: Mutex<Option<ActiveModelRef>>,
+}
+
+pub struct KnownModelInfo {
+    config: ModelConfig,
+    available: bool,
 }
 
 pub type ActiveModelRef = Arc<Mutex<ActiveModel>>;
@@ -30,17 +35,30 @@ impl AgentService {
         event!(Level::INFO, "creating agent service");
 
         let model_configs = load_model_configs().context("failed to load model configs")?;
+        let known_models = model_configs
+            .into_iter()
+            .map(|(id, config)| {
+                // Check if the safetensors file for this model exists
+                let weights_path = format!("data/{}.st", id);
+                let weights_path = Path::new(&weights_path);
+                let available = weights_path.exists();
+
+                let info = KnownModelInfo { config, available };
+
+                (id, info)
+            })
+            .collect();
 
         let value = AgentService {
-            model_configs,
+            known_models,
             active_model: Mutex::new(None),
         };
 
         Ok(value)
     }
 
-    pub fn model_configs(&self) -> &HashMap<String, ModelConfig> {
-        &self.model_configs
+    pub fn known_models(&self) -> &HashMap<String, KnownModelInfo> {
+        &self.known_models
     }
 
     pub async fn active_model(&self) -> Option<ActiveModelRef> {
@@ -55,6 +73,16 @@ impl AgentService {
     }
 }
 
+impl KnownModelInfo {
+    pub fn config(&self) -> &ModelConfig {
+        &self.config
+    }
+
+    pub fn available(&self) -> bool {
+        self.available
+    }
+}
+
 // TODO: Figure out how to better architect shared managers/services for functions like this.
 pub async fn start_activate_model(
     service: Arc<AgentService>,
@@ -63,14 +91,18 @@ pub async fn start_activate_model(
 ) -> Result<(), Error> {
     event!(Level::INFO, "activating model {:?}", id);
 
-    let model_config = service
-        .model_configs
+    let model_info = service
+        .known_models
         .get(&id)
-        .context("failed to find model in config")?
-        .clone();
+        .context("failed to find model in config")?;
 
+    if !model_info.available {
+        bail!("model not available")
+    }
+
+    let config = model_info.config.clone();
     let future = async move {
-        let result = activate_model_task(service, id, model_config, quant_nf8).await;
+        let result = activate_model_task(service, id, config, quant_nf8).await;
         if let Err(error) = result {
             // TODO: Do something with this
             event!(Level::ERROR, "error while activating model:\n{:?}", error);

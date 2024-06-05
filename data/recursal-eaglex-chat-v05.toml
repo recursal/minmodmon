@@ -1,5 +1,5 @@
 architecture = "rwkv5"
-download_link = "https://example.com/"
+download_link = "https://huggingface.co/LaylBongers/minmodmon-models/blob/main/recursal-eaglex-chat-v05.st"
 vocab = "./data/rwkv_vocab_v20230424.json"
 role_system = { prefix = [23, 42343, 11], suffix = [24, 11] }
 role_user = { prefix = [23, 27370, 11], suffix = [24, 11] }

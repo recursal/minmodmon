@@ -29,6 +29,8 @@ pub struct ChatMessage {
 pub struct ChatRequest {
     pub model: String,
     pub messages: Vec<ChatMessage>,
+    pub max_tokens: Option<usize>,
+    pub temperature: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

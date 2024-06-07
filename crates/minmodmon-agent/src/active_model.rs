@@ -20,6 +20,7 @@ use web_rwkv::{
 };
 use wgpu::{Instance, PowerPreference};
 
+use crate::sampler::SamplerSettings;
 use crate::{
     config::ModelConfig,
     sampler::Sampler,
@@ -129,7 +130,11 @@ impl ActiveModel {
         Ok(())
     }
 
-    pub async fn generate_message(&self) -> Result<String, Error> {
+    pub async fn generate_message(
+        &self,
+        max_tokens: usize,
+        settings: &SamplerSettings,
+    ) -> Result<String, Error> {
         event!(Level::DEBUG, "generating message");
 
         // Start with the prompt format of an assistant message
@@ -141,7 +146,7 @@ impl ActiveModel {
         let mut sampler = Sampler::default();
         let mut generated = Vec::new();
 
-        while !self.should_stop_generation(&generated) {
+        while !self.should_stop_generation(max_tokens, &generated) {
             // Run model step
             let batch = InferInputBatch {
                 tokens: vec![next_input],
@@ -155,7 +160,7 @@ impl ActiveModel {
             // Pick output token
             let logits = sampler.apply_penalties(logits)?;
             let probabilities = softmax_one(&self.context, logits).await?;
-            next_input = sampler.sample_min_t(&probabilities);
+            next_input = sampler.sample_min_t(settings, &probabilities);
 
             // Accumulate newly generated tokens
             generated.push(next_input);
@@ -168,9 +173,9 @@ impl ActiveModel {
         Ok(content)
     }
 
-    fn should_stop_generation(&self, tokens: &[u16]) -> bool {
+    fn should_stop_generation(&self, max_tokens: usize, tokens: &[u16]) -> bool {
         // Maximum tokens
-        if tokens.len() >= 512 {
+        if tokens.len() >= max_tokens {
             return true;
         }
 

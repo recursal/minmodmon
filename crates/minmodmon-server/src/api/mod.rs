@@ -7,7 +7,7 @@ use minmodmon_agent::types::{
 use salvo::{handler, writing::Json, Depot, Request, Response, Router};
 use tracing::{event, Level};
 
-use minmodmon_agent::agent_service;
+use minmodmon_agent::{agent_service, SamplerSettings};
 
 use crate::cache::cache_service;
 
@@ -83,7 +83,11 @@ async fn handle_chat_completions(
     cache.set(&request.messages, state).await;
 
     // Generate output
-    let content = active_model.generate_message().await?;
+    let max_tokens = request.max_tokens.unwrap_or(512);
+    let settings = SamplerSettings {
+        temperature: request.temperature.unwrap_or(0.8),
+    };
+    let content = active_model.generate_message(max_tokens, &settings).await?;
 
     // Serialize and send back the result
     let message = ChatMessage {

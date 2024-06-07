@@ -4,6 +4,10 @@ use anyhow::Error;
 use itertools::Itertools;
 use web_rwkv::tensor::{TensorCpu, TensorInit, TensorShape};
 
+pub struct SamplerSettings {
+    pub temperature: f32,
+}
+
 // TODO: This entire sampling system needs a re-work:
 // - should it parse the input too? is it per-message?
 // - in general it needs to be redesigned more clear and resilient
@@ -12,7 +16,6 @@ use web_rwkv::tensor::{TensorCpu, TensorInit, TensorShape};
 pub struct Sampler {
     occurrences: HashMap<u16, u32>,
     top_p: f32,
-    temperature: f32,
     presence_penalty: f32,
     frequency_penalty: f32,
 }
@@ -22,7 +25,6 @@ impl Default for Sampler {
         Self {
             occurrences: HashMap::new(),
             top_p: 0.5,
-            temperature: 0.8,
             presence_penalty: 0.3,
             frequency_penalty: 0.3,
         }
@@ -47,7 +49,7 @@ impl Sampler {
     }
 
     #[allow(unused)]
-    pub fn sample(&self, logits: &[f32]) -> u16 {
+    pub fn sample(&self, settings: &SamplerSettings, logits: &[f32]) -> u16 {
         let sorted: Vec<_> = logits
             .iter()
             .copied()
@@ -61,7 +63,7 @@ impl Sampler {
                     Some((id, *cum, x))
                 }
             })
-            .map(|(id, _, x)| (id, x.powf(1.0 / self.temperature)))
+            .map(|(id, _, x)| (id, x.powf(1.0 / settings.temperature)))
             .collect();
 
         let sum: f32 = sorted.iter().map(|(_, x)| x).sum();
@@ -83,12 +85,12 @@ impl Sampler {
         token as u16
     }
 
-    pub fn sample_min_t(&self, logits: &[f32]) -> u16 {
+    pub fn sample_min_t(&self, settings: &SamplerSettings, logits: &[f32]) -> u16 {
         let max = logits.iter().fold(f32::NEG_INFINITY, |acc, x| acc.max(*x));
         let min = logits.iter().fold(f32::INFINITY, |acc, x| acc.min(*x));
 
         let mut dart = fastrand::f32();
-        let power = 1.0 - f32::powf(dart, self.temperature * f32::powf(dart, 10.0));
+        let power = 1.0 - f32::powf(dart, settings.temperature * f32::powf(dart, 10.0));
         dart = f32::powf(dart, power);
         dart = min + dart * (max - min);
 

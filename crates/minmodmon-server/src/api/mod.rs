@@ -86,6 +86,8 @@ async fn handle_chat_completions(
     let max_tokens = request.max_tokens.unwrap_or(512);
     let settings = SamplerSettings {
         temperature: request.temperature.unwrap_or(0.8),
+        presence_penalty: request.presence_penalty.unwrap_or(0.3),
+        frequency_penalty: request.presence_penalty.unwrap_or(0.3),
     };
     let content = active_model.generate_message(max_tokens, &settings).await?;
 

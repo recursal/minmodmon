@@ -158,9 +158,9 @@ impl ActiveModel {
             let logits = &output[0].0;
 
             // Pick output token
-            let logits = sampler.apply_penalties(logits)?;
+            let logits = sampler.apply_penalties(settings, logits)?;
             let probabilities = softmax_one(&self.context, logits).await?;
-            next_input = sampler.sample_min_t(settings, &probabilities);
+            next_input = sampler.sample(settings, &probabilities);
 
             // Accumulate newly generated tokens
             generated.push(next_input);

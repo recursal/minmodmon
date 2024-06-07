@@ -25,9 +25,9 @@ async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
     let active_model_id = service.active_model_id().await;
 
     // Prepare template
-    let template = include_str!("dashboard.html");
+    let template = std::fs::read_to_string("./data/dashboard.html")?;
     let mut tt = TinyTemplate::new();
-    tt.add_template("dashboard", template)?;
+    tt.add_template("dashboard", &template)?;
 
     // Prepare model context data
     let mut models = Vec::new();

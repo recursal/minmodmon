@@ -14,9 +14,8 @@ Quickly run an OpenAI-compatible chat completions endpoint, using RWKV language 
 4. Download the model you want to use from the download link in the dashboard.
 5. Place the ".st" model file in the "data" directory.
 6. Re-start "minmodmon-server.exe".
-7. Under "Load Model", enter the ID of the model you downloaded, and select the quantization you want to use.
-8. Press "Load". Refresh the page to check loading status, the model will be ready once "Loaded model" changes to the
-   model ID.
+7. Under "Load Model", select the ID of the model you downloaded.
+8. Press "Load". Refresh the page to check loading status, until "Loaded model" changes to the model ID.
 
 ### SillyTavern
 

@@ -1,4 +1,11 @@
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 use anyhow::{bail, Context as _, Error};
 use salvo::Depot;
@@ -21,6 +28,7 @@ pub fn agent_service(depot: &Depot) -> Result<Arc<AgentService>, Error> {
 pub struct AgentService {
     known_models: HashMap<String, KnownModelInfo>,
     active_model: Mutex<Option<ActiveModelRef>>,
+    loading: AtomicBool,
 }
 
 pub struct KnownModelInfo {
@@ -52,6 +60,7 @@ impl AgentService {
         let value = AgentService {
             known_models,
             active_model: Mutex::new(None),
+            loading: AtomicBool::new(false),
         };
 
         Ok(value)
@@ -70,6 +79,10 @@ impl AgentService {
         let active_model = self.active_model().await?;
         let active_model = active_model.lock().await;
         Some(active_model.info().id)
+    }
+
+    pub fn loading(&self) -> bool {
+        self.loading.load(Ordering::SeqCst)
     }
 }
 
@@ -102,11 +115,16 @@ pub async fn start_activate_model(
 
     let config = model_info.config.clone();
     let future = async move {
-        let result = activate_model_task(service, id, config, quant_nf8).await;
+        service.loading.store(true, Ordering::SeqCst);
+
+        let result = activate_model_task(service.clone(), id, config, quant_nf8).await;
+
         if let Err(error) = result {
-            // TODO: Do something with this
+            // TODO: Do something with this in the dashboard
             event!(Level::ERROR, "error while activating model:\n{:?}", error);
         }
+
+        service.loading.store(false, Ordering::SeqCst);
     };
     tokio::task::spawn(future);
 
@@ -119,11 +137,21 @@ async fn activate_model_task(
     config: ModelConfig,
     quant_nf8: bool,
 ) -> Result<(), Error> {
+    // Unload any existing model, if there is one
+    {
+        let mut slot = service.active_model.lock().await;
+        *slot = None;
+    }
+
+    // Load the new model
     let active_model = ActiveModel::create(id, config, quant_nf8).await?;
     let active_model = Arc::new(Mutex::new(active_model));
 
-    let mut slot = service.active_model.lock().await;
-    *slot = Some(active_model);
+    // Store the new model
+    {
+        let mut slot = service.active_model.lock().await;
+        *slot = Some(active_model);
+    }
 
     Ok(())
 }

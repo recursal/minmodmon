@@ -22,6 +22,7 @@ pub fn create_router() -> Result<Router, Error> {
 async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
     let service = agent_service(depot)?;
 
+    let loading = service.loading();
     let active_model_id = service.active_model_id().await;
 
     // Prepare template
@@ -44,6 +45,7 @@ async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
     // Prepare context data
     let context = Context {
         loaded_model: active_model_id.unwrap_or_else(|| "None".to_string()),
+        loading,
         models,
     };
 
@@ -57,6 +59,7 @@ async fn handle(depot: &mut Depot, res: &mut Response) -> Result<(), Error> {
 #[derive(Serialize)]
 struct Context {
     loaded_model: String,
+    loading: bool,
     models: Vec<ModelContext>,
 }
 

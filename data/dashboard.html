@@ -9,7 +9,14 @@
 <h1>Mini Model Daemon Dashboard</h1>
 
 <section>
-    <p>Loaded model: {loaded_model}</p>
+    <p>
+        Loaded model:
+        {{ if loading }}
+        Loading...
+        {{ else }}
+        {loaded_model}
+        {{ endif }}
+    </p>
     <p>API URL: <input type="text" value="http://127.0.0.1:5000/api" readonly/></p>
 </section>
 
@@ -20,7 +27,14 @@
         <div style="width:150px;display:inline-block">
             <label for="model-id">Model ID</label>
         </div>
-        <input type="text" name="model-id" id="model-id" required/>
+        <select name="model-id" id="model-id" required>
+            <option value="">Select Model...</option>
+            {{ for model in models }}
+            {{ if model.available }}
+            <option value="{model.id}">{model.id}</option>
+            {{ endif }}
+            {{ endfor }}
+        </select>
     </div>
 
     <div>

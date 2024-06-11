@@ -13,7 +13,8 @@ use minmodmon_agent::{agent_service, start_activate_model};
 pub fn create_router() -> Result<Router, Error> {
     let router = Router::new()
         .get(handle)
-        .push(Router::with_path("load_model").post(handle_load_model));
+        .push(Router::with_path("load_model").post(handle_load_model))
+        .push(Router::with_path("splash-bg.png").get(handle_splash));
 
     Ok(router)
 }
@@ -96,5 +97,11 @@ async fn handle_load_model(
 
     res.render(Redirect::other("/"));
 
+    Ok(())
+}
+
+#[handler]
+async fn handle_splash(req: &mut Request, res: &mut Response) -> Result<(), Error> {
+    res.send_file("./data/splash-bg.png", req.headers()).await;
     Ok(())
 }

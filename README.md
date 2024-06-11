@@ -1,5 +1,7 @@
 # Mini Model Daemon
 
+![splash](data/splash.png)
+
 Quickly run an OpenAI-compatible chat completions endpoint, using RWKV language models (such as EagleX).
 
 ## Getting Started

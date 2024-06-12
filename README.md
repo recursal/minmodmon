@@ -1,8 +1,9 @@
 # Mini Model Daemon
 
-![splash](data/splash.png)
+![a distressed kasane teto gets attacked by an eagle](data/splash.png)
 
-Quickly run an OpenAI-compatible chat completions endpoint, using RWKV language models (such as EagleX).
+Quickly run an OpenAI-compatible chat completions server, using RWKV language models (such as EagleX). Self-contained
+no install dependencies required!
 
 ## Getting Started
 

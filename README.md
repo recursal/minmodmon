@@ -29,3 +29,7 @@ no install dependencies required!
 5. Press "Connect".
 6. Under "Available Models", select your previously loaded model. If only "None" is available, follow the instructions
    above to load a model.
+
+## Acknowledgements
+
+Uses [web-rwkv](https://github.com/cryscan/web-rwkv) as the inference backend.

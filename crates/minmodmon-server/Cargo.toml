@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
-salvo = { workspace = true, features = ["affix", "anyhow", "logging"] }
+salvo = { workspace = true, features = ["affix-state", "anyhow", "logging"] }
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

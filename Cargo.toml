@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1-dev"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
@@ -13,14 +13,14 @@ half = "2.4.1"
 itertools = "0.13.0"
 memmap2 = "0.9.4"
 safetensors = "0.4.3"
-salvo = "0.68.0"
+salvo = "0.74.1"
 serde = "1.0.202"
 tinytemplate = "1.2.1"
 tokio = "1.37.0"
 toml = "0.8.13"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
-web-rwkv = "0.8.17"
-wgpu = "0.20.0"
+web-rwkv = "0.8.20"
+wgpu = "23.0.0"
 minmodmon-agent = { path = "./crates/minmodmon-agent" }
 minmodmon-dashboard = { path = "./crates/minmodmon-dashboard" }

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Error};
 use salvo::{
-    affix::AffixList, conn::TcpListener, logging::Logger, Listener, Router, Server, Service,
+    affix_state::AffixList, conn::TcpListener, logging::Logger, Listener, Router, Server, Service,
 };
 
 use minmodmon_agent::AgentService;
